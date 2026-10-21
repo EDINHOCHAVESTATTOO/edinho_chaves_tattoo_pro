@@ -135,3 +135,4 @@ async function updatePassword(e: FormEvent) {
     </section>
   </main>;
 }
+// Atualização para publicação da recuperação de senha
