@@ -1,21 +1,75 @@
-if (accessToken && refreshToken) {
+'use client';
+
+import { useEffect, useState, type FormEvent } from 'react';
+import { createClient } from '@/lib/supabase';
+
+type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
+
+export default function Home() {
+  const [tab, setTab] = useState<Tab>('inicio');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [sessionEmail, setSessionEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+    const url = new URL(window.location.href);
+    const hash = new URLSearchParams(url.hash.slice(1));
+    const recoveryLink = url.searchParams.get('type') === 'recovery' ||
+      hash.get('type') === 'recovery' ||
+      url.searchParams.has('token_hash') ||
+      url.searchParams.has('code') ||
+      hash.has('access_token');
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true);
+        setRecoveryReady(true);
+        setMessage('Digite sua nova senha.');
+      } else if (!recoveryLink) {
+        setSessionEmail(session?.user.email ?? '');
+      }
+    });
+
+    async function initialize() {
+      try {
+        const accessToken = hash.get('access_token');
+        const refreshToken = hash.get('refresh_token');
+        const code = url.searchParams.get('code');
+        const tokenHash = url.searchParams.get('token_hash');
+
+        if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
+          if (error) throw error;
+        } else if (tokenHash) {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+          if (error) throw error;
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
         }
 
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         if (!active) return;
-
         if (recoveryLink) {
           if (!session) throw new Error('Link inválido ou expirado. Solicite um novo e-mail de recuperação.');
           setRecoveryMode(true);
           setRecoveryReady(true);
           setMessage('Digite sua nova senha.');
-          // Retira códigos e tokens da barra de endereço após validar a sessão.
           window.history.replaceState({}, '', window.location.pathname);
         } else {
           setSessionEmail(session?.user.email ?? '');
@@ -34,7 +88,8 @@ if (accessToken && refreshToken) {
   async function updatePassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!recoveryReady) return;
-    setBusy(true); setMessage('');
+    setBusy(true);
+    setMessage('');
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password: newPassword });
@@ -52,7 +107,9 @@ if (accessToken && refreshToken) {
   }
 
   async function signIn(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setBusy(true); setMessage('');
+    e.preventDefault();
+    setBusy(true);
+    setMessage('');
     try {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -67,7 +124,8 @@ if (accessToken && refreshToken) {
   async function signOut() {
     try { await createClient().auth.signOut(); }
     catch (err) { setMessage(err instanceof Error ? err.message : 'Não foi possível sair.'); return; }
-    setSessionEmail(''); setMessage('Sessão encerrada.');
+    setSessionEmail('');
+    setMessage('Sessão encerrada.');
   }
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
@@ -81,6 +139,7 @@ if (accessToken && refreshToken) {
   return <main className="shell">
     <aside className="sidebar">
       <div className="brand">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-original.png" alt="Logotipo original Edinho Chaves Tattoo" onError={e => {
           const img = e.currentTarget;
           if (!img.src.endsWith('.jpeg')) img.src = '/logo-original.jpeg';
