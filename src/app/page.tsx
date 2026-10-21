@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 
 type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
@@ -11,7 +11,52 @@ export default function Home() {
   const [message, setMessage] = useState('');
   const [sessionEmail, setSessionEmail] = useState('');
   const [busy, setBusy] = useState(false);
+const [recoveryMode, setRecoveryMode] = useState(false);
+const [newPassword, setNewPassword] = useState('');
 
+useEffect(() => {
+  const supabase = createClient();
+
+  const { data: { subscription } } =
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true);
+        setMessage('Digite sua nova senha.');
+      }
+    });
+
+  return () => subscription.unsubscribe();
+}, []);
+async function updatePassword(e: FormEvent) {
+  e.preventDefault();
+  setBusy(true);
+  setMessage('');
+
+  try {
+    const supabase = createClient();
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) throw error;
+
+    await supabase.auth.signOut();
+
+    setRecoveryMode(false);
+    setNewPassword('');
+    setSessionEmail('');
+    setMessage('Senha alterada com sucesso! Faça seu login.');
+  } catch (err) {
+    setMessage(
+      err instanceof Error
+        ? err.message
+        : 'Não foi possível alterar a senha.'
+    );
+  } finally {
+    setBusy(false);
+  }
+}
   async function signIn(e: FormEvent) {
     e.preventDefault(); setBusy(true); setMessage('');
     try {
@@ -44,7 +89,35 @@ export default function Home() {
     </aside>
     <section className="content">
       <header className="top"><div><div className="eyebrow">GESTÃO DO ESTÚDIO</div><h1>{tabs.find(t=>t.id===tab)?.label}</h1></div><span className="date">{new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</span></header>
-      {!sessionEmail ? <section className="login card">
+      {recoveryMode ? (
+  <section className="login card">
+    <div className="eyebrow">ACESSO SEGURO</div>
+    <h2>Cadastrar nova senha</h2>
+    <p className="muted">
+      Digite sua nova senha para acessar o sistema.
+    </p>
+
+    <form onSubmit={updatePassword} className="form">
+      <label>
+        Nova senha
+        <input
+          type="password"
+          required
+          minLength={8}
+          value={newPassword}
+          onChange={e => setNewPassword(e.target.value)}
+          autoComplete="new-password"
+        />
+      </label>
+
+      <button className="primary" disabled={busy}>
+        {busy ? 'Salvando…' : 'Salvar nova senha'}
+      </button>
+    </form>
+
+    {message && <p className="notice">{message}</p>}
+  </section>
+) : !sessionEmail ? <section className="login card">
         <div className="eyebrow">ACESSO SEGURO</div><h2>Entrar no sistema</h2><p className="muted">Use um usuário criado em Authentication → Users no Supabase.</p>
         <form onSubmit={signIn} className="form">
           <label>E-mail<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username"/></label>
