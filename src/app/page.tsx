@@ -6,6 +6,7 @@ import FluxoCaixa from './FluxoCaixa';
 import AgendaEstudio from './AgendaEstudio';
 import ComissoesEstudio from './ComissoesEstudio';
 import VisaoGeral from './VisaoGeral';
+import ClientesEstudio from './ClientesEstudio';
 type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
 
 export default function Home() {
@@ -176,7 +177,8 @@ export default function Home() {
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
         {tab === 'inicio' && <VisaoGeral />}
-        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
+        {tab === 'clientes' && <ClientesEstudio />}
+        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
         </>}
       <p className="footerNote">O logotipo original é mantido sem redesenho. A aplicação ainda precisa de testes de segurança e configuração de produção.</p>
