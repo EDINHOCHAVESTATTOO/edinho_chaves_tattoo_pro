@@ -3,9 +3,16 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { createClient } from '@/lib/supabase';
 
-type Entry = { id: string; kind: 'receita' | 'despesa'; description: string; category: string; payment_method: string; amount: number; occurred_on: string };
-const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+type Entry = {
+  id: string;
+  kind: 'receita' | 'despesa';
+  description: string;
+  category: string;
+  payment_method: string;
+  amount: number;
+  occurred_on: string;
+  studio_payment_id: string | null;
+};
 
 export default function FluxoCaixa() {
   const [items, setItems] = useState<Entry[]>([]);
@@ -25,7 +32,7 @@ export default function FluxoCaixa() {
     setLoading(true);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Sessão expirada. Saia e entre novamente.'); setLoading(false); return; }
-    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on').eq('user_id', user.id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
+    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id').eq('user_id', user.id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
     if (error) setMessage(`Erro ao carregar: ${error.message}`);
     else { setItems((data ?? []) as Entry[]); setMessage(''); }
     setLoading(false);
@@ -47,14 +54,46 @@ export default function FluxoCaixa() {
     setBusy(false);
   }
 
-  async function remove(id: string) {
-    if (!window.confirm('Excluir este lançamento?')) return;
-    setBusy(true);
-    const { error } = await supabase.from('cash_entries').delete().eq('id', id);
-    if (error) setMessage(`Erro ao excluir: ${error.message}`);
-    else await load();
-    setBusy(false);
+async function remove(id: string) {
+  const entry = items.find(x => x.id === id);
+
+  if (!entry) return;
+
+  if (entry.studio_payment_id) {
+    setMessage('Este recebimento pertence à agenda. Faça a correção no atendimento.');
+    return;
   }
+
+  if (!window.confirm('Excluir este lançamento manual?')) return;
+
+  setBusy(true);
+  setMessage('');
+
+  const { data: { user }, error: authError } =
+    await supabase.auth.getUser();
+
+  if (authError || !user) {
+    setMessage('Faça login novamente.');
+    setBusy(false);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('cash_entries')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .is('studio_payment_id', null);
+
+  if (error) {
+    setMessage(`Erro ao excluir: ${error.message}`);
+  } else {
+    await load();
+    setMessage('Lançamento manual excluído.');
+  }
+
+  setBusy(false);
+}
 
   return <div style={{display:'grid',gap:18}}>
     <div className="cards">{[['Receitas',money(income)],['Despesas',money(expense)],['Saldo do mês',money(income-expense)]].map(([label,value]) => <div className="card" key={label}><span>{label}</span><h2 style={{marginTop:10}}>{value}</h2></div>)}</div>
@@ -68,7 +107,21 @@ export default function FluxoCaixa() {
       <button className="primary" disabled={busy}>{busy?'Salvando...':'Salvar lançamento'}</button>
     </form></section>
     <section className="card"><h2>Movimentações do mês</h2><label style={{display:'block',marginBottom:14}}>Mês <input type="month" value={month} onChange={e=>setMonth(e.target.value)} /></label>
-      {loading?<p>Carregando...</p>:items.length===0?<p>Nenhum lançamento neste mês.</p>:<div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}><thead><tr>{['Data','Tipo','Descrição','Categoria','Pagamento','Valor',''].map(h=><th key={h} style={{padding:10,borderBottom:'1px solid #444'}}>{h}</th>)}</tr></thead><tbody>{items.map(x=><tr key={x.id}>{[x.occurred_on.split('-').reverse().join('/'),x.kind,x.description,x.category,x.payment_method,money(Number(x.amount))].map((v,i)=><td key={i} style={{padding:10,borderBottom:'1px solid #333'}}>{v}</td>)}<td><button type="button" disabled={busy} onClick={()=>void remove(x.id)}>Excluir</button></td></tr>)}</tbody></table></div>}
+      {loading?<p>Carregando...</p>:items.length===0?<p>Nenhum lançamento neste mês.</p>:<div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}><thead><tr>{['Data','Tipo','Descrição','Categoria','Pagamento','Valor',''].map(h=><th key={h} style={{padding:10,borderBottom:'1px solid #444'}}>{h}</th>)}</tr></thead><tbody>{items.map(x=><tr key={x.id}>{[x.occurred_on.split('-').reverse().join('/'),x.kind,x.description,x.category,x.payment_method,money(Number(x.amount))].map((v,i)=><td key={i} style={{padding:10,borderBottom:'1px solid #333'}}>{v}</td>)}<td>
+  {x.studio_payment_id ? (
+    <span style={{ color: '#d9aa3b', fontSize: 12 }}>
+      Vinculado à agenda
+    </span>
+  ) : (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => void remove(x.id)}
+    >
+      Excluir
+    </button>
+  )}
+</td></tr>)}</tbody></table></div>}
     </section>{message&&<p className="notice" role="status">{message}</p>}
   </div>;
 }
