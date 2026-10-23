@@ -13,6 +13,7 @@ type Appointment = {
   status: string;
   procedure_name: string;
   price: number;
+  commission_percent: number;
 }; 
 type Props = { day: string; professionalId: string; setProfessionalId: (id: string) => void; pros: Pro[]; clients: Client[]; appointments: Appointment[]; onFree: (dateTime: string, proId: string) => void; onOccupied: (appointment: Appointment) => void };
 
