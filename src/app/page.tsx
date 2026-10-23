@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import FluxoCaixa from './FluxoCaixa';
 import AgendaEstudio from './AgendaEstudio';
 import ComissoesEstudio from './ComissoesEstudio';
+import VisaoGeral from './VisaoGeral';
 type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
 
 export default function Home() {
@@ -174,7 +175,7 @@ export default function Home() {
         <p className="notice">Configure as variáveis Supabase antes de entrar. Não existe senha padrão.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
-        {tab === 'inicio' && <><div className="cards">{[['Receitas', 'R$ 0,00'], ['Despesas', 'R$ 0,00'], ['Saldo operacional', 'R$ 0,00'], ['Agendamentos hoje', '0']].map(c => <div className="card" key={c[0]}><span>{c[0]}</span><strong>{c[1]}</strong><small>Conecte os registros para ver os totais</small></div>)}</div><div className="card"><h2>Próximas etapas</h2><p>O login usa Supabase Auth. O próximo passo de desenvolvimento é conectar o fluxo de caixa, agenda, clientes e comissões ao banco com permissões por estúdio.</p></div></>}
+        {tab === 'inicio' && <VisaoGeral />}<div className="cards">{[['Receitas', 'R$ 0,00'], ['Despesas', 'R$ 0,00'], ['Saldo operacional', 'R$ 0,00'], ['Agendamentos hoje', '0']].map(c => <div className="card" key={c[0]}><span>{c[0]}</span><strong>{c[1]}</strong><small>Conecte os registros para ver os totais</small></div>)}</div><div className="card"><h2>Próximas etapas</h2><p>O login usa Supabase Auth. O próximo passo de desenvolvimento é conectar o fluxo de caixa, agenda, clientes e comissões ao banco com permissões por estúdio.</p></div></>}
         {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
       </>}
