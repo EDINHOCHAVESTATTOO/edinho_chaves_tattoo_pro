@@ -4,7 +4,16 @@ import { useMemo } from 'react';
 
 type Pro = { id: string; name: string; active: boolean };
 type Client = { id: string; name: string };
-type Appointment = { id: string; client_id: string; professional_id: string; starts_at: string; ends_at: string; status: string; procedure_name: string };
+type Appointment = {
+  id: string;
+  client_id: string;
+  professional_id: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  procedure_name: string;
+  price: number;
+}; 
 type Props = { day: string; professionalId: string; setProfessionalId: (id: string) => void; pros: Pro[]; clients: Client[]; appointments: Appointment[]; onFree: (dateTime: string, proId: string) => void; onOccupied: (appointment: Appointment) => void };
 
 const pad = (n: number) => String(n).padStart(2, '0');
