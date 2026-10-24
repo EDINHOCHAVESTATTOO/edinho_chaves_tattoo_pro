@@ -110,6 +110,23 @@ export default function AnamneseEstudio({ clientId }: { clientId: string }) {
       const { data: cliente, error: clientError } = await supabase.from('studio_clients')
         .select('name,phone').eq('id', clientId).eq('user_id', user.id).single();
       if (clientError || !cliente) throw new Error('Não foi possível identificar o cliente.');
+      // A assinatura é consultada diretamente no banco no momento da impressão.
+      const { data: assinaturaSalva, error: assinaturaErro } = await supabase
+        .from('studio_anamnesis_signatures')
+        .select('signer_name,signature_data,signed_at')
+        .eq('user_id', user.id)
+        .eq('anamnesis_id', registro.id)
+        .maybeSingle();
+      if (assinaturaErro) throw new Error(`Não foi possível consultar a assinatura: ${assinaturaErro.message}`);
+      const imagemAssinatura = assinaturaSalva?.signature_data ?? '';
+      // Só aceita imagens PNG codificadas como data URL; nunca injeta HTML arbitrário.
+      const imagemValida = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(imagemAssinatura);
+      const blocoAssinaturaCliente = imagemValida
+        ? `<div class="assinatura assinatura-digital"><img src="${imagemAssinatura}" alt="Assinatura registrada do cliente"/><strong>Assinatura do cliente</strong><span>${escaparHtml(assinaturaSalva.signer_name)}</span><small>Registrada em ${escaparHtml(formatoData(assinaturaSalva.signed_at))}</small></div>`
+        : '<div class="assinatura">Assinatura do cliente</div>';
+      const notaAssinatura = imagemValida
+        ? 'Assinatura gráfica registrada eletronicamente. O registro, por si só, não verifica a identidade do assinante nem substitui o termo de consentimento do procedimento.'
+        : 'Espaços em branco não comprovam assinatura ou consentimento. O termo de consentimento do procedimento é um documento separado.';
       const linhas = perguntas.map(p => {
         const resposta = registro.answers?.[p.id] === 'sim' ? 'Sim' : registro.answers?.[p.id] === 'nao' ? 'Não' : 'Não respondido';
         return `<div class="pergunta"><strong>${escaparHtml(p.texto)}</strong><span>${resposta}</span></div>`;
@@ -117,10 +134,10 @@ export default function AnamneseEstudio({ clientId }: { clientId: string }) {
       const detalhes = escaparHtml(registro.answers?.detalhes || 'Nenhum');
       const documento = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Anamnese - ${escaparHtml(cliente.name)}</title>
 <style>
-*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#202020;max-width:920px;margin:24px auto;padding:0 22px;line-height:1.4}h1{font-size:29px;margin:0}h2{font-size:20px;color:#936a23;margin:25px 0 12px}.sub{color:#555;margin:4px 0 16px}.barra{border-bottom:3px solid #aa812f;margin:12px 0 20px}.acoes{margin:16px 0 22px}.acoes button{background:#a47c2c;border:0;color:white;padding:12px 18px;border-radius:5px;cursor:pointer}.dados{margin:14px 0}.pergunta{border-bottom:1px solid #ddd;padding:9px 0;break-inside:avoid;page-break-inside:avoid}.pergunta strong{display:block;font-size:13px}.pergunta span{display:block;margin-top:3px;font-size:13px}.detalhes{border:1px solid #d5c4a2;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid}.assinaturas{display:flex;gap:35px;margin-top:80px;break-inside:avoid;page-break-inside:avoid}.assinatura{flex:1;border-top:1px solid #333;text-align:center;padding-top:7px;font-size:12px}.nota{font-size:11px;color:#555;margin-top:25px}.status{font-size:12px;color:#555}@media print{@page{size:A4;margin:15mm}body{margin:0;max-width:none;padding:0}.acoes{display:none!important}h2{break-after:avoid;page-break-after:avoid}.assinaturas{margin-top:65px}}@media(max-width:550px){.assinaturas{display:block}.assinatura{margin-top:65px}}
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#202020;max-width:920px;margin:24px auto;padding:0 22px;line-height:1.4}h1{font-size:29px;margin:0}h2{font-size:20px;color:#936a23;margin:25px 0 12px}.sub{color:#555;margin:4px 0 16px}.barra{border-bottom:3px solid #aa812f;margin:12px 0 20px}.acoes{margin:16px 0 22px}.acoes button{background:#a47c2c;border:0;color:white;padding:12px 18px;border-radius:5px;cursor:pointer}.dados{margin:14px 0}.pergunta{border-bottom:1px solid #ddd;padding:9px 0;break-inside:avoid;page-break-inside:avoid}.pergunta strong{display:block;font-size:13px}.pergunta span{display:block;margin-top:3px;font-size:13px}.detalhes{border:1px solid #d5c4a2;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid}.assinaturas{display:flex;gap:35px;margin-top:80px;break-inside:avoid;page-break-inside:avoid}.assinatura{flex:1;border-top:1px solid #333;text-align:center;padding-top:7px;font-size:12px}.assinatura-digital{border-top:0;padding-top:0}.assinatura-digital img{display:block;width:100%;max-width:290px;height:110px;object-fit:contain;object-position:center bottom;margin:0 auto 6px}.assinatura-digital strong,.assinatura-digital span,.assinatura-digital small{display:block}.assinatura-digital small{color:#555;margin-top:4px}.nota{font-size:11px;color:#555;margin-top:25px}.status{font-size:12px;color:#555}@media print{@page{size:A4;margin:15mm}body{margin:0;max-width:none;padding:0}.acoes{display:none!important}h2{break-after:avoid;page-break-after:avoid}.assinaturas{margin-top:65px}}@media(max-width:550px){.assinaturas{display:block}.assinatura{margin-top:65px}}
 </style></head><body><h1>Edinho Chaves Tattoo</h1><div class="sub">Ficha de anamnese · Emitida em ${escaparHtml(new Date().toLocaleDateString('pt-BR'))}</div><div class="barra"></div><div class="acoes"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div>
 <h2>Identificação do cliente</h2><div class="dados"><strong>Nome:</strong> ${escaparHtml(cliente.name)}<br/><strong>Telefone:</strong> ${escaparHtml(cliente.phone)}<br/><strong>Registro:</strong> ${escaparHtml(formatoData(registro.created_at))}<br/><strong>Situação:</strong> ${registro.status === 'finalizada' ? 'Finalizada' : 'Rascunho'}${registro.finalized_at ? `<br/><strong>Finalização:</strong> ${escaparHtml(formatoData(registro.finalized_at))}` : ''}</div>
-<h2>Questionário de saúde</h2>${linhas}<h2>Informações adicionais</h2><div class="detalhes">${detalhes}</div><div class="assinaturas"><div class="assinatura">Assinatura do cliente</div><div class="assinatura">Assinatura do profissional</div></div><p class="nota">Documento de anamnese para conferência e assinatura manuscrita. Os espaços de assinatura em branco não comprovam assinatura ou consentimento. O termo de consentimento do procedimento é um documento separado. Contém dados pessoais sensíveis: armazenar e compartilhar apenas de forma autorizada.</p></body></html>`;
+<h2>Questionário de saúde</h2>${linhas}<h2>Informações adicionais</h2><div class="detalhes">${detalhes}</div><div class="assinaturas">${blocoAssinaturaCliente}<div class="assinatura">Assinatura do profissional</div></div><p class="nota">${notaAssinatura} Contém dados pessoais sensíveis: armazenar e compartilhar apenas de forma autorizada.</p></body></html>`;
       janela.document.open();
       janela.document.write(documento);
       janela.document.close();
