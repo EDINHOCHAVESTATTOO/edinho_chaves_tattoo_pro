@@ -118,11 +118,12 @@ export default function AnamneseEstudio({ clientId }: { clientId: string }) {
         .eq('anamnesis_id', registro.id)
         .maybeSingle();
       if (assinaturaErro) throw new Error(`Não foi possível consultar a assinatura: ${assinaturaErro.message}`);
-      const imagemAssinatura = assinaturaSalva?.signature_data ?? '';
+      const imagemAssinatura = assinaturaSalva?.signature_data ?? '';const nomeAssinante = assinaturaSalva?.signer_name ?? '';
+const dataAssinatura = assinaturaSalva?.signed_at ?? '';
       // Só aceita imagens PNG codificadas como data URL; nunca injeta HTML arbitrário.
       const imagemValida = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(imagemAssinatura);
       const blocoAssinaturaCliente = imagemValida
-        ? `<div class="assinatura assinatura-digital"><img src="${imagemAssinatura}" alt="Assinatura registrada do cliente"/><strong>Assinatura do cliente</strong><span>${escaparHtml(assinaturaSalva.signer_name)}</span><small>Registrada em ${escaparHtml(formatoData(assinaturaSalva.signed_at))}</small></div>`
+        ? `<div class="assinatura assinatura-digital"><img src="${imagemAssinatura}" alt="Assinatura registrada do cliente"/><strong>Assinatura do cliente</strong><span>${escaparHtml(nomeAssinante)}</span><small>Registrada em ${escaparHtml(formatoData(dataAssinatura))}</small></div>`
         : '<div class="assinatura">Assinatura do cliente</div>';
       const notaAssinatura = imagemValida
         ? 'Assinatura gráfica registrada eletronicamente. O registro, por si só, não verifica a identidade do assinante nem substitui o termo de consentimento do procedimento.'
