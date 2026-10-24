@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type CSSProperties } from 'react';
 import { createClient } from '@/lib/supabase';
+import AssinaturaAnamnese from './AssinaturaAnamnese';
 
 type Resposta = 'sim' | 'nao' | '';
 type Pergunta = { id: string; texto: string };
@@ -40,12 +41,16 @@ export default function AnamneseEstudio({ clientId }: { clientId: string }) {
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
   const [detalhe, setDetalhe] = useState<string | null>(null);
+  const [assinandoId, setAssinandoId] = useState<string | null>(null);
+  const [clienteNome, setClienteNome] = useState('');
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro('');
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user || authError) { setErro('Entre novamente no sistema.'); setCarregando(false); return; }
+    const { data: cliente } = await supabase.from('studio_clients').select('name').eq('id', clientId).eq('user_id', user.id).maybeSingle();
+    setClienteNome(cliente?.name ?? '');
     const { data, error } = await supabase.from('studio_anamneses')
       .select('id,answers,status,created_at,finalized_at')
       .eq('user_id', user.id).eq('client_id', clientId)
@@ -56,7 +61,7 @@ export default function AnamneseEstudio({ clientId }: { clientId: string }) {
   }, [supabase, clientId]);
 
   useEffect(() => { void carregar(); }, [carregar]);
-  useEffect(() => { setAberto(false); setRespostas({}); setRascunhoId(null); setDetalhe(null); setAviso(''); }, [clientId]);
+  useEffect(() => { setAberto(false); setRespostas({}); setRascunhoId(null); setDetalhe(null); setAssinandoId(null); setAviso(''); }, [clientId]);
 
   function iniciar() {
     const existente = registros.find(r => r.status === 'rascunho');
@@ -137,9 +142,11 @@ export default function AnamneseEstudio({ clientId }: { clientId: string }) {
             <span>{formatoData(r.created_at)} · {r.status === 'finalizada' ? 'Finalizada' : 'Rascunho'}</span>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button type="button" style={botao} disabled={imprimindoId !== null} onClick={() => void imprimir(r)}>{imprimindoId === r.id ? 'Preparando…' : 'Imprimir / Salvar em PDF'}</button>
+              {r.status === 'finalizada' && <button type="button" style={botao} onClick={() => setAssinandoId(atual => atual === r.id ? null : r.id)}>{assinandoId === r.id ? 'Fechar assinatura' : 'Assinar digitalmente / Consultar assinatura'}</button>}
               <button type="button" style={botao} onClick={() => setDetalhe(detalhe === r.id ? null : r.id)}>{detalhe === r.id ? 'Ocultar' : 'Consultar'}</button>
             </div>
           </div>
+          {r.status === 'finalizada' && assinandoId === r.id && <AssinaturaAnamnese key={r.id} anamnesisId={r.id} clientName={clienteNome} />}
           {detalhe === r.id && <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
             {perguntas.map(p => <div key={p.id}><strong>{p.texto}</strong><div>{r.answers?.[p.id] === 'sim' ? 'Sim' : r.answers?.[p.id] === 'nao' ? 'Não' : 'Não respondido'}</div></div>)}
             <div><strong>Detalhes informados:</strong> {r.answers?.detalhes || 'Nenhum'}</div>
