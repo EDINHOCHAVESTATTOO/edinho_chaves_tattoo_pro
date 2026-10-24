@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createClient } from '@/lib/supabase';
+import AnamneseEstudio from './AnamneseEstudio';
 
 type Cliente = { id: string; user_id: string; name: string; phone: string; notes: string; created_at: string };
 type Agendamento = { id: string; client_id: string; procedure_name: string; starts_at: string; price: number; status: string; professional_id: string | null };
@@ -241,6 +242,7 @@ export default function ClientesEstudio({
       </div>
       <p><strong>Telefone:</strong> {clienteAtual.phone}</p>
       <p><strong>Observações:</strong> {clienteAtual.notes || 'Nenhuma observação.'}</p>
+      <AnamneseEstudio key={clienteAtual.id} clientId={clienteAtual.id} />
       <h3>Resumo financeiro</h3>
       {carregandoHistorico ? <p>Carregando valores…</p> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 22 }}>
         {[['Total dos atendimentos', totalContratado], ['Total recebido', totalRecebido], ['Saldo pendente', totalPendente]].map(([rotulo, valor]) =>
