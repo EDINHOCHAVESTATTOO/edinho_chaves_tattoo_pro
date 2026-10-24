@@ -165,6 +165,27 @@ export default function ClientesEstudio({
     } finally { setSalvandoPagamento(false); }
   }
 
+  function imprimirFicha() {
+    if (!clienteAtual || carregandoHistorico) return;
+    const janela = window.open('', '_blank');
+    if (!janela) { setErro('Permita a abertura de janelas para imprimir a ficha.'); return; }
+    const escapar = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+    const dataBR = (v: string) => v.split('-').reverse().join('/');
+    const linhas = agendamentos.map(a => {
+      const pagos = pagamentos.filter(p => p.appointment_id === a.id).sort((x, y) => x.paid_on.localeCompare(y.paid_on));
+      const recebido = pagos.reduce((s, p) => s + Number(p.amount), 0);
+      const pagamentosHtml = pagos.length ? pagos.map(p => {
+        const comissao = comissoes.find(c => c.payment_id === p.id);
+        return `<tr><td>${escapar(dataBR(p.paid_on))}</td><td>${escapar(p.payment_type)}</td><td>${escapar(p.payment_method)}</td><td>${escapar(moeda(Number(p.amount)))}</td><td>${comissao ? escapar(`${moeda(Number(comissao.commission_amount))} (${Number(comissao.rate_percent)}%) · ${comissao.status === 'paid' ? 'Paga' : comissao.status === 'approved' ? 'Aprovada' : comissao.status === 'pending' ? 'Pendente' : comissao.status}`) : '—'}</td></tr>`;
+      }).join('') : '<tr><td colspan="5">Nenhum pagamento registrado</td></tr>';
+      return `<section class="atendimento"><h3>${escapar(a.procedure_name)} <small>${escapar(a.status)}</small></h3><p>${escapar(dataHora(a.starts_at))} · Profissional: ${escapar(a.professional_id ? (profissionais[a.professional_id] ?? 'Não identificado') : 'Não informado')}</p><p>Valor: <b>${escapar(moeda(Number(a.price)))}</b> · Recebido: <b>${escapar(moeda(recebido))}</b> · Pendente: <b>${escapar(moeda(Math.max(0, Number(a.price) - recebido)))}</b></p><table><thead><tr><th>Data</th><th>Tipo</th><th>Forma</th><th>Valor</th><th>Comissão</th></tr></thead><tbody>${pagamentosHtml}</tbody></table></section>`;
+    }).join('');
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ficha financeira - ${escapar(clienteAtual.name)}</title><style>body{font-family:Arial,sans-serif;color:#222;max-width:900px;margin:35px auto;padding:0 22px}header{border-bottom:3px solid #a78332;padding-bottom:16px}h1{margin-bottom:4px}h2{margin-top:28px;color:#795b22}h3{margin-bottom:8px}.resumo{display:flex;gap:12px;flex-wrap:wrap}.resumo div{border:1px solid #bda774;border-radius:7px;padding:12px;flex:1;min-width:160px}.resumo strong{display:block;margin-top:7px;font-size:19px}.atendimento{border-top:1px solid #bbb;margin-top:22px;padding-top:10px;break-inside:avoid}small{font-size:12px;font-weight:normal;margin-left:8px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #ddd;padding:9px 5px}th{background:#f4efe4}.acoes{margin:20px 0}.acoes button{padding:10px 18px;background:#9c772e;color:white;border:0;border-radius:6px;cursor:pointer}@media print{.acoes{display:none}body{margin:0;max-width:none;padding:0}@page{size:A4;margin:15mm}}</style></head><body><header><h1>Edinho Chaves Tattoo</h1><div>Ficha financeira do cliente · Emitida em ${escapar(new Date().toLocaleDateString('pt-BR'))}</div></header><div class="acoes"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div><h2>${escapar(clienteAtual.name)}</h2><p><b>Telefone:</b> ${escapar(clienteAtual.phone)}</p><p><b>Observações:</b> ${escapar(clienteAtual.notes || 'Nenhuma')}</p><h2>Resumo financeiro</h2><div class="resumo"><div>Total dos atendimentos<strong>${escapar(moeda(totalContratado))}</strong></div><div>Total recebido<strong>${escapar(moeda(totalRecebido))}</strong></div><div>Saldo pendente<strong>${escapar(moeda(totalPendente))}</strong></div></div><h2>Histórico de atendimentos</h2>${linhas || '<p>Nenhum atendimento registrado.</p>'}</body></html>`;
+    janela.document.open();
+    janela.document.write(html);
+    janela.document.close();
+  }
+
   const filtrados = clientes.filter(c => `${c.name} ${c.phone}`.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR')));
   const clienteAtual = clientes.find(c => c.id === selecionado);
   const totalContratado = agendamentos.filter(a => a.status !== 'cancelado').reduce((s, a) => s + Number(a.price), 0);
@@ -212,7 +233,10 @@ export default function ClientesEstudio({
         </table></div>}
     </section>
     {clienteAtual && <section ref={fichaRef} className="card" style={{ scrollMarginTop: 20 }}>
-      <h2>Ficha de {clienteAtual.name}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <h2 style={{ margin: 0 }}>Ficha de {clienteAtual.name}</h2>
+        <button type="button" style={botao} disabled={carregandoHistorico} onClick={imprimirFicha}>Imprimir ficha / Salvar em PDF</button>
+      </div>
       <p><strong>Telefone:</strong> {clienteAtual.phone}</p>
       <p><strong>Observações:</strong> {clienteAtual.notes || 'Nenhuma observação.'}</p>
       <h3>Resumo financeiro</h3>
