@@ -15,7 +15,7 @@ const mesAtual = () => dataLocal().slice(0, 7);
 const soma = (valores: number[]) => valores.reduce((a, b) => a + b, 0);
 const estiloCard: React.CSSProperties = { background: '#141414', border: '1px solid #35302a', borderRadius: 14, padding: 20 };
 
-export default function VisaoGeral() {
+export default function VisaoGeral({ onOpenClient }: { onOpenClient?: (clientId: string) => void }) {
   const supabase = useMemo(() => createClient(), []);
   const [mes, setMes] = useState(mesAtual);
   const [caixa, setCaixa] = useState<Caixa[]>([]);
@@ -138,14 +138,16 @@ export default function VisaoGeral() {
         <h2 style={{ marginTop: 0 }}>Atendimentos com valores a receber</h2>
         <p style={{ color: '#cbb994', fontSize: 13 }}>Saldos de atendimentos não cancelados, de qualquer mês. A lista é somente para consulta; pagamentos devem ser registrados pela Agenda.</p>
         {saldosPendentes.length === 0 ? <p>Nenhum valor pendente.</p> : <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
-          <thead><tr>{['Cliente', 'Procedimento', 'Data', 'Valor', 'Recebido', 'Falta receber'].map(t => <th key={t} style={{ textAlign: 'left', color: '#e0b348', padding: '12px 9px', borderBottom: '1px solid #705a30' }}>{t}</th>)}</tr></thead>
+          <thead><tr>{['Cliente', 'Procedimento', 'Data', 'Situação', 'Valor', 'Recebido', 'Falta receber', 'Ação'].map(t => <th key={t} style={{ textAlign: 'left', color: '#e0b348', padding: '12px 9px', borderBottom: '1px solid #705a30' }}>{t}</th>)}</tr></thead>
           <tbody>{saldosPendentes.map(a => <tr key={a.id}>
             <td style={{ padding: '12px 9px', borderBottom: '1px solid #333' }}>{a.cliente}</td>
             <td style={{ padding: '12px 9px', borderBottom: '1px solid #333' }}>{a.procedure_name}</td>
             <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap' }}>{new Date(a.starts_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
-            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap' }}>{moeda(Number(a.price))}</td>
+            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333' }}>{a.status === 'concluido' ? 'Concluído · saldo pendente' : a.status}</td>
+             <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap' }}>{moeda(Number(a.price))}</td>
             <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap' }}>{moeda(a.recebido)}</td>
             <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap', color: '#e0b348', fontWeight: 700 }}>{moeda(a.restante)}</td>
+             <td style={{ padding: '12px 9px', borderBottom: '1px solid #333' }}><button type="button" className="secondary" disabled={!a.client_id || !onOpenClient} onClick={() => { if (a.client_id) onOpenClient?.(a.client_id); }}>Ver ficha</button></td>
           </tr>)}</tbody>
         </table></div>}
       </section>}

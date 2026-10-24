@@ -19,6 +19,7 @@ export default function Home() {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [clienteParaAbrir, setClienteParaAbrir] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -176,8 +177,17 @@ export default function Home() {
         <p className="notice">Configure as variáveis Supabase antes de entrar. Não existe senha padrão.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
-        {tab === 'inicio' && <VisaoGeral />}
-        {tab === 'clientes' && <ClientesEstudio />}
+        {tab === 'inicio' && (
+  <VisaoGeral
+    onOpenClient={(clientId) => {
+      setClienteParaAbrir(clientId);
+      setTab('clientes');
+    }}
+  />
+)}
+        {tab === 'clientes' && (
+  <ClientesEstudio clienteParaAbrir={clienteParaAbrir} />
+)}
         {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
         </>}

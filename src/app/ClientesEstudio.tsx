@@ -9,11 +9,19 @@ type Pagamento = { id: string; appointment_id: string; amount: number; payment_t
 const moeda = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
-export default function ClientesEstudio() {
+export default function ClientesEstudio({
+  clienteParaAbrir,
+}: {
+  clienteParaAbrir?: string | null;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [busca, setBusca] = useState('');
-  const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [selecionado, setSelecionado] = useState<string | null>(null);useEffect(() => {
+  if (clienteParaAbrir) {
+    setSelecionado(clienteParaAbrir);
+  }
+}, [clienteParaAbrir]);
   const [editando, setEditando] = useState<string | null>(null);
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
