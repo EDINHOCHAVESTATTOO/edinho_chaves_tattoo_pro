@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase';
 type Cliente = { id: string; user_id: string; name: string; phone: string; notes: string; created_at: string };
 type Agendamento = { id: string; client_id: string; procedure_name: string; starts_at: string; price: number; status: string; professional_id: string | null };
 type Pagamento = { id: string; appointment_id: string; amount: number; payment_type: string; payment_method: string; paid_on: string };
+type Comissao = { payment_id: string; commission_amount: number; rate_percent: number; status: string };
 const moeda = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const lerValor = (v: string) => Number(v.trim().replace(/\./g, '').replace(',', '.'));
@@ -34,6 +35,7 @@ export default function ClientesEstudio({
   const [notas, setNotas] = useState('');
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
+  const [comissoes, setComissoes] = useState<Comissao[]>([]);
   const [profissionais, setProfissionais] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -62,7 +64,7 @@ export default function ClientesEstudio({
   useEffect(() => { void carregar(); }, [carregar]);
 
   useEffect(() => {
-    if (!selecionado) { setAgendamentos([]); setPagamentos([]); return; }
+    if (!selecionado) { setAgendamentos([]); setPagamentos([]); setComissoes([]); return; }
     let ativo = true;
     async function buscarHistorico() {
       setCarregandoHistorico(true); setErro('');
@@ -82,11 +84,28 @@ export default function ClientesEstudio({
           supabase.from('studio_professionals').select('id,name').eq('user_id', user.id),
         ]);
         if (!ativo) return;
-        if (resultadoPagamentos.error) setErro(resultadoPagamentos.error.message);
-        else setPagamentos((resultadoPagamentos.data ?? []) as Pagamento[]);
+        if (resultadoPagamentos.error) {
+          setErro(resultadoPagamentos.error.message);
+          setPagamentos([]);
+          setComissoes([]);
+        } else {
+          const listaPagamentos = (resultadoPagamentos.data ?? []) as Pagamento[];
+          setPagamentos(listaPagamentos);
+          const idsPagamentos = listaPagamentos.map(p => p.id);
+          if (idsPagamentos.length) {
+            const resultadoComissoes = await supabase.from('studio_commissions')
+              .select('payment_id,commission_amount,rate_percent,status')
+              .eq('user_id', user.id).in('payment_id', idsPagamentos);
+            if (!ativo) return;
+            if (resultadoComissoes.error) {
+              setComissoes([]);
+              setErro(`Não foi possível carregar as comissões: ${resultadoComissoes.error.message}`);
+            } else setComissoes((resultadoComissoes.data ?? []) as Comissao[]);
+          } else setComissoes([]);
+        }
         if (resultadoProfissionais.error) setErro(resultadoProfissionais.error.message);
         else setProfissionais(Object.fromEntries((resultadoProfissionais.data ?? []).map(p => [p.id, p.name])));
-      } else { setPagamentos([]); }
+      } else { setPagamentos([]); setComissoes([]); setProfissionais({}); }
       setCarregandoHistorico(false);
     }
     void buscarHistorico();
@@ -148,6 +167,10 @@ export default function ClientesEstudio({
 
   const filtrados = clientes.filter(c => `${c.name} ${c.phone}`.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR')));
   const clienteAtual = clientes.find(c => c.id === selecionado);
+  const totalContratado = agendamentos.filter(a => a.status !== 'cancelado').reduce((s, a) => s + Number(a.price), 0);
+  const idsValidos = new Set(agendamentos.filter(a => a.status !== 'cancelado').map(a => a.id));
+  const totalRecebido = pagamentos.filter(p => idsValidos.has(p.appointment_id)).reduce((s, p) => s + Number(p.amount), 0);
+  const totalPendente = Math.max(0, totalContratado - totalRecebido);
 
   useEffect(() => {
     if (clienteAtual && clienteParaAbrir === clienteAtual.id) {
@@ -192,24 +215,60 @@ export default function ClientesEstudio({
       <h2>Ficha de {clienteAtual.name}</h2>
       <p><strong>Telefone:</strong> {clienteAtual.phone}</p>
       <p><strong>Observações:</strong> {clienteAtual.notes || 'Nenhuma observação.'}</p>
+      <h3>Resumo financeiro</h3>
+      {carregandoHistorico ? <p>Carregando valores…</p> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 22 }}>
+        {[['Total dos atendimentos', totalContratado], ['Total recebido', totalRecebido], ['Saldo pendente', totalPendente]].map(([rotulo, valor]) =>
+          <div key={String(rotulo)} style={{ padding: 14, border: '1px solid #64502c', borderRadius: 9, background: '#161513' }}>
+            <div style={{ color: '#d6c5a1', fontSize: 13 }}>{rotulo}</div>
+            <strong style={{ display: 'block', marginTop: 8, fontSize: 22, color: '#e0b348' }}>{moeda(Number(valor))}</strong>
+          </div>)}
+      </div>}
       <h3>Histórico de atendimentos</h3>
       {carregandoHistorico ? <p>Carregando histórico…</p> : agendamentos.length === 0 ? <p>Este cliente ainda não tem agendamentos registrados.</p> :
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div style={{ display: 'grid', gap: 14 }}>
           {agendamentos.map(a => {
-            const pagos = pagamentos.filter(p => p.appointment_id === a.id);
+            const pagos = pagamentos.filter(p => p.appointment_id === a.id).sort((x, y) => y.paid_on.localeCompare(x.paid_on));
             const recebido = pagos.reduce((s, p) => s + Number(p.amount), 0);
-            return <div key={a.id} style={{ border: '1px solid #3c3529', borderRadius: 8, padding: 14 }}>
-              <strong>{a.procedure_name}</strong> — {dataHora(a.starts_at)}
-              <p>Status: {a.status} · Profissional: {a.professional_id ? (profissionais[a.professional_id] ?? 'Não identificado') : 'Não informado'}</p>
-              <p>Valor: {moeda(Number(a.price))} · Recebido: {moeda(recebido)} · Falta: {moeda(Math.max(0, Number(a.price) - recebido))}</p>
-              {pagos.length > 0 && <p>Pagamentos: {pagos.map(p => `${p.payment_type} ${moeda(Number(p.amount))} (${p.paid_on.split('-').reverse().join('/')})`).join(' · ')}</p>}
-              {a.status !== 'cancelado' && Math.round((Number(a.price) - recebido) * 100) > 0 && (
+            const falta = Math.max(0, Number(a.price) - recebido);
+            const comissoesAtendimento = pagos.map(p => comissoes.find(c => c.payment_id === p.id)).filter((c): c is Comissao => Boolean(c));
+            const totalComissao = comissoesAtendimento.reduce((s, c) => s + Number(c.commission_amount), 0);
+            return <div key={a.id} style={{ border: '1px solid #51442e', borderRadius: 10, padding: 16, background: '#151515' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <strong style={{ color: '#e0b348', fontSize: 17 }}>{a.procedure_name}</strong>
+                <span style={{ border: '1px solid #64502c', borderRadius: 20, padding: '4px 10px', fontSize: 12 }}>{a.status}</span>
+              </div>
+              <p style={{ marginBottom: 8 }}>Data: {dataHora(a.starts_at)} · Profissional: {a.professional_id ? (profissionais[a.professional_id] ?? 'Não identificado') : 'Não informado'}</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginBottom: 12 }}>
+                <span>Valor: <strong>{moeda(Number(a.price))}</strong></span>
+                <span>Recebido: <strong style={{ color: '#e0b348' }}>{moeda(recebido)}</strong></span>
+                <span>Falta: <strong>{moeda(falta)}</strong></span>
+              </div>
+              <div style={{ borderTop: '1px solid #3c3529', paddingTop: 12 }}>
+                <strong>Histórico de pagamentos</strong>
+                {pagos.length === 0 ? <p style={{ color: '#b9b2a4' }}>Nenhum pagamento registrado.</p> :
+                  <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                    {pagos.map(p => {
+                      const comissao = comissoes.find(c => c.payment_id === p.id);
+                      return <div key={p.id} style={{ padding: 11, border: '1px solid #36312a', borderRadius: 7, background: '#101010' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>
+                          <span>{p.paid_on.split('-').reverse().join('/')} · {p.payment_method} · {p.payment_type}</span>
+                          <strong style={{ color: '#e0b348' }}>{moeda(Number(p.amount))}</strong>
+                        </div>
+                        <div style={{ marginTop: 7, fontSize: 13, color: '#c7c0b4' }}>
+                          {comissao ? `Comissão: ${moeda(Number(comissao.commission_amount))} (${Number(comissao.rate_percent)}%) · ${comissao.status === 'paid' ? 'Paga' : comissao.status === 'approved' ? 'Aprovada' : comissao.status === 'pending' ? 'Pendente' : comissao.status}` : 'Comissão não encontrada para este pagamento'}
+                        </div>
+                      </div>;
+                    })}
+                  </div>}
+                {comissoesAtendimento.length > 0 && <p style={{ marginTop: 10 }}>Total de comissões geradas: <strong>{moeda(totalComissao)}</strong></p>}
+              </div>
+              {a.status !== 'cancelado' && Math.round(falta * 100) > 0 && (
                 <div style={{ marginTop: 12 }}>
                   {pagandoId !== a.id ? (
                     <button type="button" style={botao} onClick={() => { setPagandoId(a.id); setValorPagamento(''); setErro(''); setAviso(''); }}>Registrar pagamento</button>
                   ) : (
                     <form onSubmit={e => void registrarPagamento(e, a)} style={{ display: 'grid', gap: 12, maxWidth: 550, padding: 16, border: '1px solid #80642c', borderRadius: 8 }}>
-                      <h4 style={{ margin: 0, color: '#e0b348' }}>Novo recebimento · saldo {moeda(Math.max(0, Number(a.price) - recebido))}</h4>
+                      <h4 style={{ margin: 0, color: '#e0b348' }}>Novo recebimento · saldo {moeda(falta)}</h4>
                       <label>Tipo de pagamento<select style={estiloInput} value={tipoPagamento} onChange={e => setTipoPagamento(e.target.value)}><option value="sinal">Sinal</option><option value="restante">Restante</option><option value="outro">Outro pagamento</option></select></label>
                       <label>Valor recebido (R$)<input style={estiloInput} required inputMode="decimal" placeholder="100,00" value={valorPagamento} onChange={e => setValorPagamento(e.target.value)} /></label>
                       <label>Forma de pagamento<select style={estiloInput} value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}>{['Pix', 'Dinheiro', 'Cartão de débito', 'Cartão de crédito', 'Transferência', 'Outro'].map(m => <option key={m} value={m}>{m}</option>)}</select></label>
