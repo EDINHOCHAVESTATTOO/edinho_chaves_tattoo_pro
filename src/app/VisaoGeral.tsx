@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase';
 
 type Caixa = { id: string; kind: 'receita' | 'despesa'; description: string; category: string; amount: number; occurred_on: string; payment_method: string };
 type Agenda = { id: string; procedure_name: string; starts_at: string; status: string; price: number };
-type AtendimentoFinanceiro = { id: string; procedure_name: string; status: string; price: number };
+type AtendimentoFinanceiro = { id: string; client_id: string | null; procedure_name: string; starts_at: string; status: string; price: number };
+type SaldoPendente = AtendimentoFinanceiro & { recebido: number; restante: number; cliente: string };
 type Pagamento = { appointment_id: string; amount: number };
 type Comissao = { id: string; commission_amount: number; status: string; created_at: string; paid_at: string | null };
 const moeda = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
@@ -22,6 +23,8 @@ export default function VisaoGeral() {
   const [comissoes, setComissoes] = useState<Comissao[]>([]);
   const [aReceber, setAReceber] = useState(0);
   const [quantidadeEmAberto, setQuantidadeEmAberto] = useState(0);
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false);
+  const [saldosPendentes, setSaldosPendentes] = useState<SaldoPendente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [atualizado, setAtualizado] = useState('');
@@ -57,7 +60,7 @@ export default function VisaoGeral() {
       const tamanhoPagina = 500;
       for (let pagina = 0; ; pagina++) {
         const { data, error } = await supabase.from('studio_appointments')
-          .select('id,procedure_name,status,price')
+          .select('id,client_id,procedure_name,starts_at,status,price')
           .eq('user_id', user.id).neq('status', 'cancelado')
           .order('id', { ascending: true })
           .range(pagina * tamanhoPagina, (pagina + 1) * tamanhoPagina - 1);
@@ -80,10 +83,24 @@ export default function VisaoGeral() {
         pagoPorAtendimento.set(pagamento.appointment_id,
           (pagoPorAtendimento.get(pagamento.appointment_id) ?? 0) + Number(pagamento.amount));
       }
-      const saldos = atendimentos.map(a => Math.max(0,
-        Math.round((Number(a.price) - (pagoPorAtendimento.get(a.id) ?? 0)) * 100) / 100));
-      setAReceber(soma(saldos));
-      setQuantidadeEmAberto(saldos.filter(valor => valor > 0).length);
+      const abertos = atendimentos.map(a => {
+        const recebido = pagoPorAtendimento.get(a.id) ?? 0;
+        const restante = Math.max(0, Math.round((Number(a.price) - recebido) * 100) / 100);
+        return { ...a, recebido, restante, cliente: 'Cliente não identificado' };
+      }).filter(a => a.restante > 0);
+      const nomesClientes = new Map<string, string>();
+      const idsClientes = [...new Set(abertos.map(a => a.client_id).filter((id): id is string => Boolean(id)))];
+      for (let i = 0; i < idsClientes.length; i += 100) {
+        const { data, error } = await supabase.from('studio_clients')
+          .select('id,name').eq('user_id', user.id).in('id', idsClientes.slice(i, i + 100));
+        if (error) throw error;
+        for (const cliente of data ?? []) nomesClientes.set(cliente.id, cliente.name);
+      }
+      const detalhados = abertos.map(a => ({ ...a, cliente: a.client_id ? (nomesClientes.get(a.client_id) ?? 'Cliente não identificado') : 'Cliente não identificado' }))
+        .sort((a, b) => b.restante - a.restante);
+      setSaldosPendentes(detalhados);
+      setAReceber(soma(detalhados.map(a => a.restante)));
+      setQuantidadeEmAberto(detalhados.length);
       setAtualizado(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível carregar os dados.'); }
     finally { setCarregando(false); }
@@ -114,9 +131,24 @@ export default function VisaoGeral() {
     {erro && <p className="notice" role="alert">{erro}</p>}
     {carregando ? <p>Carregando informações...</p> : <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14 }}>
-        {([['Faturamento recebido', moeda(receitas), '↗'], ['Despesas pagas', moeda(despesas), '↘'], ['Saldo do mês', moeda(receitas - despesas), '▣'], ['Agendamentos hoje', String(ativosHoje.length), '▦'], ['Valores a receber', moeda(aReceber), '◷']] as const).map(([titulo, valor, simbolo]) => <div key={titulo} style={estiloCard}><span style={{ color: '#d6ac50', fontSize: 22 }}>{simbolo}</span><p style={{ color: '#c8bda9', marginBottom: 10 }}>{titulo}</p><strong style={{ fontSize: 25 }}>{valor}</strong></div>)}
+        {([['Faturamento recebido', moeda(receitas), '↗'], ['Despesas pagas', moeda(despesas), '↘'], ['Saldo do mês', moeda(receitas - despesas), '▣'], ['Agendamentos hoje', String(ativosHoje.length), '▦'], ['Valores a receber', moeda(aReceber), '◷']] as const).map(([titulo, valor, simbolo]) => <div key={titulo} style={{ ...estiloCard, ...(titulo === 'Valores a receber' ? { cursor: 'pointer', borderColor: '#80642e' } : {}) }} role={titulo === 'Valores a receber' ? 'button' : undefined} tabIndex={titulo === 'Valores a receber' ? 0 : undefined} aria-expanded={titulo === 'Valores a receber' ? detalhesAbertos : undefined} onClick={titulo === 'Valores a receber' ? () => setDetalhesAbertos(v => !v) : undefined} onKeyDown={titulo === 'Valores a receber' ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetalhesAbertos(v => !v); } } : undefined}><span style={{ color: '#d6ac50', fontSize: 22 }}>{simbolo}</span><p style={{ color: '#c8bda9', marginBottom: 10 }}>{titulo}</p><strong style={{ fontSize: 25 }}>{valor}</strong>{titulo === 'Valores a receber' && <div style={{ color: '#d6ac50', fontSize: 12, marginTop: 10 }}>{detalhesAbertos ? 'Ocultar detalhes ▲' : 'Ver quem falta pagar ▼'}</div>}</div>)}
       </div>
       <p style={{ margin: '-8px 0 0', color: '#cbb994', fontSize: 12 }}>Valores a receber: {quantidadeEmAberto} atendimento(s) não cancelado(s) com saldo pendente, de qualquer mês. Não entram no caixa até o pagamento.</p>
+      {detalhesAbertos && <section style={estiloCard} aria-label="Atendimentos com saldo pendente">
+        <h2 style={{ marginTop: 0 }}>Atendimentos com valores a receber</h2>
+        <p style={{ color: '#cbb994', fontSize: 13 }}>Saldos de atendimentos não cancelados, de qualquer mês. A lista é somente para consulta; pagamentos devem ser registrados pela Agenda.</p>
+        {saldosPendentes.length === 0 ? <p>Nenhum valor pendente.</p> : <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 660 }}>
+          <thead><tr>{['Cliente', 'Procedimento', 'Data', 'Valor', 'Recebido', 'Falta receber'].map(t => <th key={t} style={{ textAlign: 'left', color: '#e0b348', padding: '12px 9px', borderBottom: '1px solid #705a30' }}>{t}</th>)}</tr></thead>
+          <tbody>{saldosPendentes.map(a => <tr key={a.id}>
+            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333' }}>{a.cliente}</td>
+            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333' }}>{a.procedure_name}</td>
+            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap' }}>{new Date(a.starts_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
+            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap' }}>{moeda(Number(a.price))}</td>
+            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap' }}>{moeda(a.recebido)}</td>
+            <td style={{ padding: '12px 9px', borderBottom: '1px solid #333', whiteSpace: 'nowrap', color: '#e0b348', fontWeight: 700 }}>{moeda(a.restante)}</td>
+          </tr>)}</tbody>
+        </table></div>}
+      </section>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(290px,1fr))', gap: 16 }}>
         <section style={estiloCard}><h2 style={{ marginTop: 0 }}>Movimentação do mês</h2><div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#c9c9c9' }}><span>🟢 Receitas</span><span>🔴 Despesas</span></div><div style={{ display: 'flex', alignItems: 'end', height: 170, gap: 3, borderBottom: '1px solid #51483b', marginTop: 15 }}>{valoresDia.map(x => <div key={x.dia} title={`${x.dia}/${mes.slice(5)}/${mes.slice(0,4)} · Receitas: ${moeda(x.receita)} · Despesas: ${moeda(x.despesa)}`} style={{ flex: 1, display: 'flex', alignItems: 'end', height: '100%', gap: 1 }}><div style={{ width: '50%', background: '#25a775', height: `${Math.max(0, x.receita / maximo * 100)}%`, minHeight: x.receita ? 2 : 0, borderRadius: '3px 3px 0 0' }} /><div style={{ width: '50%', background: '#df5151', height: `${Math.max(0, x.despesa / maximo * 100)}%`, minHeight: x.despesa ? 2 : 0, borderRadius: '3px 3px 0 0' }} /></div>)}</div><div style={{ display: 'flex', justifyContent: 'space-between', color: '#999', fontSize: 11, marginTop: 6 }}><span>Dia 1</span><span>Dia {dias.length}</span></div></section>
         <section style={estiloCard}><h2 style={{ marginTop: 0 }}>Despesas por categoria</h2>{categorias.length === 0 ? <p style={{ color: '#aaa' }}>Nenhuma despesa no período.</p> : categorias.map(([nome, valor]) => <div key={nome} style={{ marginBottom: 15 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><span>{nome}</span><strong>{moeda(valor)}</strong></div><div style={{ height: 7, background: '#28231c', borderRadius: 5, marginTop: 7 }}><div style={{ width: `${despesas ? valor / despesas * 100 : 0}%`, height: '100%', background: '#d5a63c', borderRadius: 5 }} /></div></div>)}</section>
