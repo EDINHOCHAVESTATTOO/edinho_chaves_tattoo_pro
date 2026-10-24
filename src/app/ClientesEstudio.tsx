@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase';
 
 type Cliente = { id: string; user_id: string; name: string; phone: string; notes: string; created_at: string };
 type Agendamento = { id: string; client_id: string; procedure_name: string; starts_at: string; price: number; status: string; professional_id: string | null };
-type Pagamento = { id: string; appointment_id: string; amount: number; payment_type: string; paid_on: string };
+type Pagamento = { id: string; appointment_id: string; amount: number; payment_type: string; payment_method: string; paid_on: string };
 const moeda = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const lerValor = (v: string) => Number(v.trim().replace(/\./g, '').replace(',', '.'));
 const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
 export default function ClientesEstudio({
@@ -38,6 +40,13 @@ export default function ClientesEstudio({
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
+  const [pagandoId, setPagandoId] = useState<string | null>(null);
+  const [valorPagamento, setValorPagamento] = useState('');
+  const [tipoPagamento, setTipoPagamento] = useState('sinal');
+  const [formaPagamento, setFormaPagamento] = useState('Pix');
+  const [dataPagamento, setDataPagamento] = useState(hoje);
+  const [salvandoPagamento, setSalvandoPagamento] = useState(false);
+  const [atualizarHistorico, setAtualizarHistorico] = useState(0);
 
   const carregar = useCallback(async () => {
     setCarregando(true); setErro('');
@@ -69,7 +78,7 @@ export default function ClientesEstudio({
       const ids = lista.map(a => a.id);
       if (ids.length) {
         const [resultadoPagamentos, resultadoProfissionais] = await Promise.all([
-          supabase.from('studio_payments').select('id,appointment_id,amount,payment_type,paid_on').eq('user_id', user.id).in('appointment_id', ids),
+          supabase.from('studio_payments').select('id,appointment_id,amount,payment_type,payment_method,paid_on').eq('user_id', user.id).in('appointment_id', ids),
           supabase.from('studio_professionals').select('id,name').eq('user_id', user.id),
         ]);
         if (!ativo) return;
@@ -82,7 +91,7 @@ export default function ClientesEstudio({
     }
     void buscarHistorico();
     return () => { ativo = false; };
-  }, [selecionado, supabase]);
+  }, [selecionado, supabase, atualizarHistorico]);
 
   function novo() { setEditando(null); setNome(''); setTelefone(''); setNotas(''); setAviso(''); }
   function editar(c: Cliente) { setEditando(c.id); setNome(c.name); setTelefone(c.phone); setNotas(c.notes); setAviso(''); }
@@ -100,6 +109,41 @@ export default function ClientesEstudio({
     if (resultado.error) setErro(resultado.error.message);
     else { setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); novo(); setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); await carregar(); }
     setSalvando(false);
+  }
+
+  async function registrarPagamento(e: FormEvent<HTMLFormElement>, agendamento: Agendamento) {
+    e.preventDefault();
+    if (salvandoPagamento) return;
+    setErro(''); setAviso('');
+    const valor = lerValor(valorPagamento);
+    if (!Number.isFinite(valor) || valor <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
+      setErro('Informe um valor positivo e uma data válida.'); return;
+    }
+    if (agendamento.status === 'cancelado') { setErro('Não é possível receber pagamento de atendimento cancelado.'); return; }
+    setSalvandoPagamento(true);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (!user || authError) throw new Error('Entre novamente no sistema.');
+      const { data: registro, error: registroErro } = await supabase.from('studio_appointments')
+        .select('id,price,status').eq('id', agendamento.id).eq('user_id', user.id).single();
+      if (registroErro || !registro) throw registroErro ?? new Error('Atendimento não encontrado.');
+      if (registro.status === 'cancelado') throw new Error('Atendimento cancelado.');
+      const { data: anteriores, error: pagamentosErro } = await supabase.from('studio_payments')
+        .select('amount').eq('user_id', user.id).eq('appointment_id', agendamento.id);
+      if (pagamentosErro) throw pagamentosErro;
+      const jaPago = (anteriores ?? []).reduce((s, p) => s + Number(p.amount), 0);
+      if (Math.round((jaPago + valor) * 100) > Math.round(Number(registro.price) * 100))
+        throw new Error(`O valor supera o saldo disponível de ${moeda(Math.max(0, Number(registro.price) - jaPago))}.`);
+      const { error: insertErro } = await supabase.from('studio_payments').insert({
+        user_id: user.id, appointment_id: agendamento.id, amount: valor,
+        payment_type: tipoPagamento, payment_method: formaPagamento, paid_on: dataPagamento,
+      });
+      if (insertErro) throw insertErro;
+      setPagandoId(null); setValorPagamento(''); setAviso('Pagamento registrado com sucesso.');
+      setAtualizarHistorico(v => v + 1);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Não foi possível registrar o pagamento.');
+    } finally { setSalvandoPagamento(false); }
   }
 
   const filtrados = clientes.filter(c => `${c.name} ${c.phone}`.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR')));
@@ -159,6 +203,25 @@ export default function ClientesEstudio({
               <p>Status: {a.status} · Profissional: {a.professional_id ? (profissionais[a.professional_id] ?? 'Não identificado') : 'Não informado'}</p>
               <p>Valor: {moeda(Number(a.price))} · Recebido: {moeda(recebido)} · Falta: {moeda(Math.max(0, Number(a.price) - recebido))}</p>
               {pagos.length > 0 && <p>Pagamentos: {pagos.map(p => `${p.payment_type} ${moeda(Number(p.amount))} (${p.paid_on.split('-').reverse().join('/')})`).join(' · ')}</p>}
+              {a.status !== 'cancelado' && Math.round((Number(a.price) - recebido) * 100) > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  {pagandoId !== a.id ? (
+                    <button type="button" style={botao} onClick={() => { setPagandoId(a.id); setValorPagamento(''); setErro(''); setAviso(''); }}>Registrar pagamento</button>
+                  ) : (
+                    <form onSubmit={e => void registrarPagamento(e, a)} style={{ display: 'grid', gap: 12, maxWidth: 550, padding: 16, border: '1px solid #80642c', borderRadius: 8 }}>
+                      <h4 style={{ margin: 0, color: '#e0b348' }}>Novo recebimento · saldo {moeda(Math.max(0, Number(a.price) - recebido))}</h4>
+                      <label>Tipo de pagamento<select style={estiloInput} value={tipoPagamento} onChange={e => setTipoPagamento(e.target.value)}><option value="sinal">Sinal</option><option value="restante">Restante</option><option value="outro">Outro pagamento</option></select></label>
+                      <label>Valor recebido (R$)<input style={estiloInput} required inputMode="decimal" placeholder="100,00" value={valorPagamento} onChange={e => setValorPagamento(e.target.value)} /></label>
+                      <label>Forma de pagamento<select style={estiloInput} value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)}>{['Pix', 'Dinheiro', 'Cartão de débito', 'Cartão de crédito', 'Transferência', 'Outro'].map(m => <option key={m} value={m}>{m}</option>)}</select></label>
+                      <label>Data do recebimento<input style={estiloInput} required type="date" value={dataPagamento} onChange={e => setDataPagamento(e.target.value)} /></label>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <button className="primary" type="submit" disabled={salvandoPagamento}>{salvandoPagamento ? 'Salvando…' : 'Confirmar recebimento'}</button>
+                        <button style={botao} type="button" disabled={salvandoPagamento} onClick={() => setPagandoId(null)}>Cancelar</button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>;
           })}
         </div>}
