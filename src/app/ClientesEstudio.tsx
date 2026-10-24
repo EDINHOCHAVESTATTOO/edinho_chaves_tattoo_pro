@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createClient } from '@/lib/supabase';
 
 type Cliente = { id: string; user_id: string; name: string; phone: string; notes: string; created_at: string };
@@ -17,11 +17,15 @@ export default function ClientesEstudio({
   const supabase = useMemo(() => createClient(), []);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [busca, setBusca] = useState('');
-  const [selecionado, setSelecionado] = useState<string | null>(null);useEffect(() => {
-  if (clienteParaAbrir) {
-    setSelecionado(clienteParaAbrir);
-  }
-}, [clienteParaAbrir]);
+  const [selecionado, setSelecionado] = useState<string | null>(null);
+  const fichaRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (clienteParaAbrir) {
+      setBusca('');
+      setSelecionado(clienteParaAbrir);
+    }
+  }, [clienteParaAbrir]);
   const [editando, setEditando] = useState<string | null>(null);
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -100,6 +104,12 @@ export default function ClientesEstudio({
 
   const filtrados = clientes.filter(c => `${c.name} ${c.phone}`.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR')));
   const clienteAtual = clientes.find(c => c.id === selecionado);
+
+  useEffect(() => {
+    if (clienteAtual && clienteParaAbrir === clienteAtual.id) {
+      fichaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [clienteAtual, clienteParaAbrir]);
   const estiloInput = { width: '100%', padding: 11, background: '#101010', color: '#fff', border: '1px solid #64502c', borderRadius: 7 };
   const botao = { padding: '10px 15px', borderRadius: 7, border: '1px solid #80642c', background: '#222', color: '#f3d17a', cursor: 'pointer' };
 
@@ -134,7 +144,7 @@ export default function ClientesEstudio({
           </tr>)}</tbody>
         </table></div>}
     </section>
-    {clienteAtual && <section className="card">
+    {clienteAtual && <section ref={fichaRef} className="card" style={{ scrollMarginTop: 20 }}>
       <h2>Ficha de {clienteAtual.name}</h2>
       <p><strong>Telefone:</strong> {clienteAtual.phone}</p>
       <p><strong>Observações:</strong> {clienteAtual.notes || 'Nenhuma observação.'}</p>
