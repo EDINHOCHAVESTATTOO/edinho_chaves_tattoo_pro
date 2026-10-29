@@ -49,7 +49,15 @@ export default function AgendaEstudio(){
  },[supabase]);
  useEffect(()=>{void load()},[load]);
  async function owner(){const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error('Faça login novamente.');return user.id;}
- async function submit(e:FormEvent<HTMLFormElement>,action:()=>Promise<void>){e.preventDefault();setBusy(true);setMessage('');try{await action();await load();setMessage('Salvo com sucesso.')}catch(err){setMessage(err instanceof Error?err.message:'Não foi possível salvar.')}finally{setBusy(false)}}
+ async function submit(e:FormEvent<HTMLFormElement>,action:()=>Promise<void>){e.preventDefault();setBusy(true);setMessage('');try{await action();await load();setMessage('Salvo com sucesso.')}catch(err){
+  const erro = err as { code?: string; message?: string };
+
+  setMessage(
+    erro.code === '23P01'
+      ? '⚠️ Este profissional já possui um atendimento nesse horário. Escolha outro horário disponível.'
+      : erro.message || 'Não foi possível salvar.'
+  );
+}finally{setBusy(false)}}
  async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
  async function addPro(){const user_id=await owner();const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
  async function addAppointment(){
@@ -110,7 +118,15 @@ export default function AgendaEstudio(){
  async function submitEdit(e:FormEvent<HTMLFormElement>){
   e.preventDefault();setBusy(true);setMessage('');
   try{await saveEdit();await load();setMessage('Agendamento atualizado com sucesso. Os pagamentos existentes foram preservados.');}
-  catch(err){setMessage(err instanceof Error?err.message:'Não foi possível atualizar o agendamento.');}
+  catch(err){
+  const erro = err as { code?: string; message?: string };
+
+  setMessage(
+    erro.code === '23P01'
+      ? '⚠️ Este profissional já possui um atendimento nesse horário. Escolha outro horário disponível.'
+      : erro.message || 'Não foi possível atualizar o agendamento.'
+  );
+}
   finally{setBusy(false);}
  }
  async function setStatus(a:Appointment,status:string){setBusy(true);setMessage('');const {error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id);if(error)setMessage(error.message);else{await load();setMessage('Status atualizado. Registrar pagamento é uma ação separada.')}setBusy(false)}
