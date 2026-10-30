@@ -24,3 +24,22 @@ export async function GET(request: NextRequest) {
     { status: 403 }
   );
 }
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    if (body.object !== "whatsapp_business_account") {
+      return NextResponse.json(
+        { error: "Evento não reconhecido" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ received: true });
+  } catch {
+    return NextResponse.json(
+      { error: "Requisição inválida" },
+      { status: 400 }
+    );
+  }
+}
