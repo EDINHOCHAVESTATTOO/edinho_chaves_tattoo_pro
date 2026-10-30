@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         const phoneNumberId = value?.metadata?.phone_number_id;
 
         if (!phoneNumberId) continue;
+        console.log("WhatsApp Phone Number ID recebido:", phoneNumberId);
 
         const { data: account, error: accountError } =
           await supabase
