@@ -15,6 +15,7 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [sessionEmail, setSessionEmail] = useState('');
+  const [checkingSession, setCheckingSession] = useState(true);
   const [busy, setBusy] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [recoveryReady, setRecoveryReady] = useState(false);
@@ -81,9 +82,13 @@ export default function Home() {
         }
       } catch (err) {
         if (!active) return;
-        setRecoveryMode(true);
-        setRecoveryReady(false);
-        setMessage(err instanceof Error ? err.message : 'Não foi possível validar o link.');
+        if (recoveryLink) {
+          setRecoveryMode(true);
+          setRecoveryReady(false);
+        }
+        setMessage(err instanceof Error ? err.message : 'Não foi possível validar a sessão.');
+      } finally {
+        if (active) setCheckingSession(false);
       }
     }
     void initialize();
@@ -156,7 +161,7 @@ export default function Home() {
     </aside>
     <section className="content">
       <header className="top"><div><div className="eyebrow">GESTÃO DO ESTÚDIO</div><h1>{tabs.find(t => t.id === tab)?.label}</h1></div><span className="date">{new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</span></header>
-      {recoveryMode ? <section className="login card">
+      {checkingSession ? <section className="login card" role="status"><h2>Verificando acesso…</h2><p className="muted">Aguarde enquanto validamos sua sessão.</p></section> : recoveryMode ? <section className="login card">
         <div className="eyebrow">ACESSO SEGURO</div>
         <h2>Cadastrar nova senha</h2>
         <p className="muted">Escolha uma nova senha para acessar o sistema.</p>
