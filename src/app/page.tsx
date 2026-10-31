@@ -39,10 +39,16 @@ export default function Home() {
         setRecoveryMode(true);
         setRecoveryReady(true);
         setMessage('Digite sua nova senha.');
-      } else if (!recoveryLink) {
-        setSessionEmail(session?.user.email ?? '');
+      } else if (event === 'SIGNED_OUT') {
+        setSessionEmail('');
       }
     });
+
+    async function authorizeUser(userId: string) {
+      const { data, error } = await supabase.from('profiles').select('id,studio_id').eq('id', userId).maybeSingle();
+      if (error) throw error;
+      if (!data?.studio_id) throw new Error('Sua conta ainda não foi autorizada para acessar o estúdio.');
+    }
 
     async function initialize() {
       try {
@@ -78,6 +84,9 @@ export default function Home() {
           setMessage('Digite sua nova senha.');
           window.history.replaceState({}, '', window.location.pathname);
         } else {
+          if (session?.user) {
+            await authorizeUser(session.user.id);
+          }
           setSessionEmail(session?.user.email ?? '');
         }
       } catch (err) {
@@ -124,6 +133,11 @@ export default function Home() {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id').eq('id', data.user.id).maybeSingle();
+      if (profileError || !profile?.studio_id) {
+        await supabase.auth.signOut();
+        throw new Error('Sua conta não está autorizada para acessar este estúdio.');
+      }
       setSessionEmail(data.user?.email ?? email);
       setMessage('Login realizado com sucesso.');
     } catch (err) {
