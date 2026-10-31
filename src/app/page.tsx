@@ -134,9 +134,11 @@ export default function Home() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id').eq('id', data.user.id).maybeSingle();
-      if (profileError || !profile?.studio_id) {
-        await supabase.auth.signOut();
-        throw new Error('Sua conta não está autorizada para acessar este estúdio.');
+      if (profileError) throw profileError;
+      if (!profile?.studio_id) {
+        setMessage('Conta autenticada, mas ainda sem vínculo com o estúdio. Solicite a vinculação ao administrador.');
+        setSessionEmail(data.user?.email ?? email);
+        return;
       }
       setSessionEmail(data.user?.email ?? email);
       setMessage('Login realizado com sucesso.');
