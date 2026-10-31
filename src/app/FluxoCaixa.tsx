@@ -12,6 +12,7 @@ type Entry = {
   amount: number;
   occurred_on: string;
   studio_payment_id: string | null;
+  studio_commission_id: string | null;
 };
 const money = (value: number) =>
   new Intl.NumberFormat('pt-BR', {
@@ -42,7 +43,7 @@ export default function FluxoCaixa() {
     setLoading(true);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Sessão expirada. Saia e entre novamente.'); setLoading(false); return; }
-    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id').eq('user_id', user.id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
+    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id,studio_commission_id').eq('user_id', user.id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
     if (error) setMessage(`Erro ao carregar: ${error.message}`);
     else { setItems((data ?? []) as Entry[]); setMessage(''); }
     setLoading(false);
@@ -69,8 +70,8 @@ async function remove(id: string) {
 
   if (!entry) return;
 
-  if (entry.studio_payment_id) {
-    setMessage('Este recebimento pertence à agenda. Faça a correção no atendimento.');
+  if (entry.studio_payment_id || entry.studio_commission_id) {
+    setMessage('Este lançamento foi gerado pela agenda ou pelas comissões. Faça a correção no módulo de origem.');
     return;
   }
 
@@ -94,6 +95,7 @@ async function remove(id: string) {
     .eq('id', id)
     .eq('user_id', user.id)
     .is('studio_payment_id', null)
+    .is('studio_commission_id', null)
     .select('id');
 
   if (error) {
@@ -121,9 +123,9 @@ async function remove(id: string) {
     </form></section>
     <section className="card"><h2>Movimentações do mês</h2><label style={{display:'block',marginBottom:14}}>Mês <input type="month" value={month} onChange={e=>setMonth(e.target.value)} /></label>
       {loading?<p>Carregando...</p>:items.length===0?<p>Nenhum lançamento neste mês.</p>:<div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}><thead><tr>{['Data','Tipo','Descrição','Categoria','Pagamento','Valor',''].map(h=><th key={h} style={{padding:10,borderBottom:'1px solid #444'}}>{h}</th>)}</tr></thead><tbody>{items.map(x=><tr key={x.id}>{[x.occurred_on.split('-').reverse().join('/'),x.kind,x.description,x.category,x.payment_method,money(Number(x.amount))].map((v,i)=><td key={i} style={{padding:10,borderBottom:'1px solid #333'}}>{v}</td>)}<td>
-  {x.studio_payment_id ? (
+  {x.studio_payment_id || x.studio_commission_id ? (
     <span style={{ color: '#d9aa3b', fontSize: 12 }}>
-      Vinculado à agenda
+      Vinculado à agenda ou comissão
     </span>
   ) : (
     <button
