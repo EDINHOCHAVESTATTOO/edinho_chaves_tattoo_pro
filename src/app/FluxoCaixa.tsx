@@ -60,7 +60,7 @@ export default function FluxoCaixa() {
     if (authError || !user) { setMessage('Faça login novamente.'); setBusy(false); return; }
     const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
     if (error) setMessage(`Não foi possível salvar: ${error.message}`);
-    else { setDescription(''); setAmount(''); setMonth(date.slice(0,7)); await load(); setMessage('Lançamento salvo com sucesso.'); }
+    else { setDescription(''); setAmount(''); if (month === date.slice(0,7)) await load(); else setMonth(date.slice(0,7)); setMessage('Lançamento salvo com sucesso.'); }
     setBusy(false);
   }
 
@@ -88,15 +88,18 @@ async function remove(id: string) {
     return;
   }
 
-  const { error } = await supabase
+  const { data: removed, error } = await supabase
     .from('cash_entries')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)
-    .is('studio_payment_id', null);
+    .is('studio_payment_id', null)
+    .select('id');
 
   if (error) {
     setMessage(`Erro ao excluir: ${error.message}`);
+  } else if (!removed?.length) {
+    setMessage('Lançamento não encontrado ou protegido contra exclusão.');
   } else {
     await load();
     setMessage('Lançamento manual excluído.');
