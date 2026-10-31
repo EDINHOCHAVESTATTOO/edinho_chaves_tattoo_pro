@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
         // Status notifications are acknowledged; updating outgoing message
         // status requires a matching outgoing-message schema and is handled separately.
         const messages = asRecords(value.messages);
-        if (!messages.length) continue;
+        const statuses = asRecords(value.statuses);
+        if (!messages.length && !statuses.length) continue;
 
         const { data: account, error: accountError } = await supabase
           .from("whatsapp_accounts")
@@ -73,6 +74,18 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Conta WhatsApp não configurada" }, { status: 503 });
         }
 
+        for (const event of statuses) {
+          if (typeof event.id !== "string" || typeof event.status !== "string") continue;
+          if (!["sent", "delivered", "read", "failed"].includes(event.status)) continue;
+          const { error: statusError } = await supabase
+            .from("whatsapp_messages")
+            .update({ status: event.status })
+            .eq("whatsapp_message_id", event.id)
+            .eq("user_id", account.user_id)
+            .eq("direction", "outgoing");
+          if (statusError) throw statusError;
+        }
+
         for (const message of messages) {
           if (typeof message.id !== "string" || typeof message.from !== "string") continue;
           const phone = message.from;
@@ -80,14 +93,15 @@ export async function POST(request: NextRequest) {
           const profile = contact && isRecord(contact.profile) ? contact.profile : {};
           const contactName = typeof profile.name === "string" ? profile.name : null;
 
+          const conversationRow: Record<string, string> = {
+            user_id: account.user_id,
+            phone,
+            updated_at: new Date().toISOString(),
+          };
+          if (contactName) conversationRow.contact_name = contactName;
           const { data: conversation, error: conversationError } = await supabase
             .from("whatsapp_conversations")
-            .upsert({
-              user_id: account.user_id,
-              phone,
-              contact_name: contactName,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "user_id,phone" })
+            .upsert(conversationRow, { onConflict: "user_id,phone" })
             .select("id")
             .single();
           if (conversationError || !conversation) throw conversationError ?? new Error("Conversa não retornada");
