@@ -129,7 +129,19 @@ export default function AgendaEstudio(){
 }
   finally{setBusy(false);}
  }
- async function setStatus(a:Appointment,status:string){setBusy(true);setMessage('');const {error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id);if(error)setMessage(error.message);else{await load();setMessage('Status atualizado. Registrar pagamento é uma ação separada.')}setBusy(false)}
+ async function setStatus(a:Appointment,status:string){
+  if(busy)return;
+  setBusy(true);setMessage('');
+  try{
+   const user_id=await owner();
+   const {data,error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id).eq('user_id',user_id).select('id');
+   if(error)throw error;
+   if(!data?.length)throw new Error('Agendamento não encontrado ou acesso não autorizado.');
+   await load();
+   setMessage('Status atualizado. Registrar pagamento é uma ação separada.');
+  }catch(err){setMessage(err instanceof Error?err.message:'Não foi possível atualizar o status.');}
+  finally{setBusy(false);}
+ }
  async function addPayment(){const user_id=await owner();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');const amount=parseAmount(payAmount);const paid=payments.filter(x=>x.appointment_id===a.id).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(a.price)*100))throw new Error('Valor inválido ou superior ao saldo do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
  const shown=appointments.filter(a=>a.starts_at.slice(0,10)===day || new Date(a.starts_at).toLocaleDateString('en-CA')===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
  const paidFor=(id:string)=>payments.filter(p=>p.appointment_id===id).reduce((s,p)=>s+Number(p.amount),0);
