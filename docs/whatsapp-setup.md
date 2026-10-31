@@ -30,3 +30,8 @@
 6. POST unknown phone number: 503 (retryable, not silently discarded).
 7. POST status-only event: acknowledged, without inserting a fake inbound message.
 8. Verify deployment secrets, Meta subscription, database schema and end-to-end test before merging.
+
+## Preview environment
+- Set `SUPABASE_SECRET_KEY`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, and `WHATSAPP_ACCESS_TOKEN` for Vercel Preview as well as Production.
+- Redeploy the preview after changing environment targets; existing deployments do not inherit new environment settings.
+- Meta's callback points to one URL. A production callback will not invoke the preview branch. Test with a controlled Meta callback change or after explicitly approved release.
