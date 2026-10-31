@@ -120,7 +120,7 @@ export default function Home() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       setSessionEmail(data.user?.email ?? email);
-      setMessage('Login realizado. As telas de gestão serão conectadas às tabelas na próxima etapa.');
+      setMessage('Login realizado com sucesso.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Não foi possível entrar.');
     } finally { setBusy(false); }
@@ -167,14 +167,14 @@ export default function Home() {
         {message && <p className="notice">{message}</p>}
       </section> : !sessionEmail ? <section className="login card">
         <div className="eyebrow">ACESSO SEGURO</div><h2>Entrar no sistema</h2>
-        <p className="muted">Use um usuário criado em Authentication → Users no Supabase.</p>
+        <p className="muted">Acesso exclusivo ao Edinho e à equipe autorizada do estúdio.</p>
         <form onSubmit={signIn} className="form">
           <label>E-mail<input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" /></label>
           <label>Senha<input type="password" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
           <button className="primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
         </form>
         {message && <p className="notice">{message}</p>}
-        <p className="notice">Configure as variáveis Supabase antes de entrar. Não existe senha padrão.</p>
+        <p className="notice">Não possui acesso? Solicite ao responsável pelo estúdio.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
         {tab === 'inicio' && (
@@ -191,7 +191,7 @@ export default function Home() {
         {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
         </>}
-      <p className="footerNote">O logotipo original é mantido sem redesenho. A aplicação ainda precisa de testes de segurança e configuração de produção.</p>
+      <p className="footerNote">Edinho Chaves Tattoo · Sistema interno de gestão do estúdio.</p>
     </section>
   </main>;
 }
