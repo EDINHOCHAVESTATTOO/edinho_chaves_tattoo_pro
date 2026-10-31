@@ -93,15 +93,15 @@ export async function POST(request: NextRequest) {
           const profile = contact && isRecord(contact.profile) ? contact.profile : {};
           const contactName = typeof profile.name === "string" ? profile.name : null;
 
-          const conversationRow: Record<string, string> = {
+          const conversationRow = {
             user_id: account.user_id,
             phone,
             updated_at: new Date().toISOString(),
           };
-          if (contactName) conversationRow.contact_name = contactName;
+          const conversationPayload = contactName ? { ...conversationRow, contact_name: contactName } : conversationRow;
           const { data: conversation, error: conversationError } = await supabase
             .from("whatsapp_conversations")
-            .upsert(conversationRow, { onConflict: "user_id,phone" })
+            .upsert(conversationPayload, { onConflict: "user_id,phone" })
             .select("id")
             .single();
           if (conversationError || !conversation) throw conversationError ?? new Error("Conversa não retornada");
