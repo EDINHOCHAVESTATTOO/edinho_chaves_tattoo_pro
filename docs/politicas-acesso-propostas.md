@@ -41,3 +41,7 @@ Auditoria somente leitura confirmou RLS habilitado em dez tabelas principais. O 
 ## Verificação de privilégios (confirmada)
 
 A consulta `has_table_privilege` confirmou TRUNCATE para `authenticated` em nove das dez tabelas examinadas e para `anon` em oito. A tabela `studio_anamneses` não apresentou TRUNCATE para esses papéis. Como TRUNCATE ignora RLS, é obrigatório revisar e revogar os privilégios desnecessários antes de habilitar acesso de funcionários. A revogação ainda não foi executada.
+
+## Teste de regressão dos privilégios (plano)
+
+Consulta de 03/11 confirmou que o papel authenticated mantém SELECT em todas as dez tabelas examinadas e INSERT nas tabelas operacionais que recebem cadastros e pagamentos. A proposta de revogação atinge apenas TRUNCATE, TRIGGER e REFERENCES, sem revogar SELECT/INSERT/UPDATE/DELETE. Ainda é obrigatório testar privilégios herdados, funções/triggers e fluxos reais em ambiente isolado antes de executar REVOKE. Não há evidência de que a revogação tenha sido aplicada.
