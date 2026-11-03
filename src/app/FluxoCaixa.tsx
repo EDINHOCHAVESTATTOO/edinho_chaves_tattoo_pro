@@ -55,10 +55,15 @@ export default function FluxoCaixa() {
 
   async function add(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); setBusy(true); setMessage('');
-    const parsed = Number(amount.replace(/\./g,'').replace(',','.'));
+    const normalized = amount.trim();
+    if (!/^(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?$/.test(normalized)) {
+      setMessage('Informe um valor válido, como 150,00.'); setBusy(false); return;
+    }
+    const parsed = Number(normalized.replace(/\./g,'').replace(',','.'));
     if (!Number.isFinite(parsed) || parsed <= 0) { setMessage('Informe um valor maior que zero.'); setBusy(false); return; }
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Faça login novamente.'); setBusy(false); return; }
+    if (!description.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { setMessage('Informe descrição e data válidas.'); setBusy(false); return; }
     const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
     if (error) setMessage(`Não foi possível salvar: ${error.message}`);
     else { setDescription(''); setAmount(''); if (month === date.slice(0,7)) await load(); else setMonth(date.slice(0,7)); setMessage('Lançamento salvo com sucesso.'); }
