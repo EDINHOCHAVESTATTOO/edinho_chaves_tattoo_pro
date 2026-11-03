@@ -24,3 +24,9 @@ Auditoria em 03/11/2026. **Não aplicar parcialmente no banco de produção.**
 - Recepção não acessa dados financeiros restritos.
 - Desligamento de funcionário revoga acesso.
 - Master e produção preservadas até aprovação e testes.
+
+## Dados pessoais e consentimentos (auditoria complementar)
+- studio_anamneses, studio_anamnesis_signatures e studio_tattoo_consents também têm user_id, mas não studio_id.
+- Não conceder acesso genérico à equipe a informações de saúde, assinaturas ou consentimentos.
+- Definir regras separadas para leitura, criação e alteração desses documentos, com testes por papel e estúdio.
+- Exigir rastreabilidade e preservar documentos existentes durante qualquer migração.
