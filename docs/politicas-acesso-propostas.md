@@ -69,3 +69,23 @@ Projeto Supabase de teste: `prflqdbkgxjgbidzhfbc` (sem dados reais). Estes resul
 - Pagamento fictício de R$ 200 gerou receita R$ 200 e comissão R$ 60; conclusão aprovou comissão; pagamento da comissão gerou despesa R$ 60.
 - Tentativas de alterar pagamento lançado e excluir receita vinculada foram rejeitadas pelos gatilhos.
 - **Pendências bloqueadoras**: reproduzir fielmente FKs, constraints e políticas oficiais; testar owner/manager/reception/artist/piercer em dois estúdios com contas autenticadas; executar testes E2E no frontend e verificar migração em cópia isolada do esquema real. Não publicar nem aplicar políticas sintéticas à produção.
+
+## Ensaio de autorização por função e dois estúdios — 03/11/2026
+
+Executado no projeto isolado `prflqdbkgxjgbidzhfbc` usando tabelas `fixture_studios`, `fixture_studio_records` e `fixture_private.memberships`. Os seis perfis e cinco registros são **fictícios**. A função de autorização foi criada em schema privado, com `auth.uid()`, `SECURITY DEFINER`, `search_path=''` e EXECUTE limitado a `authenticated`.
+
+| Perfil | Agenda visível | Financeiro visível |
+|---|---:|---:|
+| owner A | 2 | 1 |
+| manager A | 2 | 1 |
+| reception A | 2 | 0 |
+| artist A | 1 (próprio) | 0 |
+| piercer A | 1 (próprio) | 0 |
+| owner B | 1 (somente B) | 1 (somente B) |
+
+- INSERT de finance pela recepção: rejeitado por RLS.
+- INSERT de appointment pela recepção: permitido, transação revertida no teste.
+- INSERT de appointment pelo tatuador: rejeitado por RLS.
+- Supabase Security Advisor: nenhum alerta no ambiente isolado após ensaio.
+
+**Limitação importante:** o esquema e as políticas de teste **não são cópias integrais** da produção. O aplicativo real ainda usa diversas tabelas vinculadas a `user_id`; é necessária migração controlada para `studio_id` e testes E2E com contas reais de teste antes de liberar produção. Não aplicar automaticamente as políticas de ensaio ao banco oficial.
