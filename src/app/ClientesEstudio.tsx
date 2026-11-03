@@ -74,9 +74,11 @@ export default function ClientesEstudio({
       setCarregandoHistorico(true); setErro('');
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (!user || authError) { if (ativo) { setErro('Entre novamente no sistema.'); setCarregandoHistorico(false); } return; }
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+      if (profileError || !profile?.studio_id || profile.role !== 'owner') { if (ativo) { setErro('Acesso ao histórico indisponível: vínculo do estúdio não confirmado.'); setCarregandoHistorico(false); } return; }
       const { data: agenda, error: agendaError } = await supabase.from('studio_appointments')
         .select('id,client_id,procedure_name,starts_at,price,status,professional_id')
-        .eq('user_id', user.id).eq('client_id', selecionado).order('starts_at', { ascending: false });
+        .eq('studio_id', profile.studio_id).eq('client_id', selecionado).order('starts_at', { ascending: false });
       if (!ativo) return;
       if (agendaError) { setErro(agendaError.message); setCarregandoHistorico(false); return; }
       const lista = (agenda ?? []) as Agendamento[];
@@ -85,7 +87,7 @@ export default function ClientesEstudio({
       if (ids.length) {
         const [resultadoPagamentos, resultadoProfissionais] = await Promise.all([
           supabase.from('studio_payments').select('id,appointment_id,amount,payment_type,payment_method,paid_on').eq('user_id', user.id).in('appointment_id', ids),
-          supabase.from('studio_professionals').select('id,name').eq('user_id', user.id),
+          supabase.from('studio_professionals').select('id,name').eq('studio_id', profile.studio_id),
         ]);
         if (!ativo) return;
         if (resultadoPagamentos.error) {
@@ -99,7 +101,7 @@ export default function ClientesEstudio({
           if (idsPagamentos.length) {
             const resultadoComissoes = await supabase.from('studio_commissions')
               .select('payment_id,commission_amount,rate_percent,status')
-              .eq('user_id', user.id).in('payment_id', idsPagamentos);
+              .eq('studio_id', profile.studio_id).in('payment_id', idsPagamentos);
             if (!ativo) return;
             if (resultadoComissoes.error) {
               setComissoes([]);
@@ -149,8 +151,10 @@ export default function ClientesEstudio({
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (!user || authError) throw new Error('Entre novamente no sistema.');
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+      if (profileError || !profile?.studio_id || profile.role !== 'owner') throw new Error('Acesso aos pagamentos indisponível: vínculo do estúdio não confirmado.');
       const { data: registro, error: registroErro } = await supabase.from('studio_appointments')
-        .select('id,price,status').eq('id', agendamento.id).eq('user_id', user.id).single();
+        .select('id,price,status').eq('id', agendamento.id).eq('studio_id', profile.studio_id).single();
       if (registroErro || !registro) throw registroErro ?? new Error('Atendimento não encontrado.');
       if (registro.status === 'cancelado') throw new Error('Atendimento cancelado.');
       const { data: anteriores, error: pagamentosErro } = await supabase.from('studio_payments')
@@ -160,7 +164,7 @@ export default function ClientesEstudio({
       if (Math.round((jaPago + valor) * 100) > Math.round(Number(registro.price) * 100))
         throw new Error(`O valor supera o saldo disponível de ${moeda(Math.max(0, Number(registro.price) - jaPago))}.`);
       const { error: insertErro } = await supabase.from('studio_payments').insert({
-        user_id: user.id, appointment_id: agendamento.id, amount: valor,
+        user_id: user.id, studio_id: profile.studio_id, appointment_id: agendamento.id, amount: valor,
         payment_type: tipoPagamento, payment_method: formaPagamento, paid_on: dataPagamento,
       });
       if (insertErro) throw insertErro;
