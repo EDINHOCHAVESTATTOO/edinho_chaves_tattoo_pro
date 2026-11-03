@@ -39,3 +39,14 @@ commit;
 --   public.studio_commissions, public.studio_payments, public.studio_professionals,
 --   public.studio_tattoo_consents FROM anon;
 -- Verificar grants herdados, dependências, privilégios efetivos e testes funcionais.
+
+-- TESTE DE ACEITE EM AMBIENTE ISOLADO (após revogação, não na produção):
+-- select c.relname, has_table_privilege('anon',c.oid,'TRUNCATE') as anon_truncate,
+--   has_table_privilege('authenticated',c.oid,'TRUNCATE') as authenticated_truncate
+-- from pg_class c join pg_namespace n on n.oid=c.relnamespace
+-- where n.nspname='public' and c.relname in
+-- ('cash_entries','profiles','studio_anamnesis_signatures','studio_appointments',
+--  'studio_clients','studio_commissions','studio_payments','studio_professionals',
+--  'studio_tattoo_consents');
+-- Critério: todas as permissões TRUNCATE acima devem retornar false.
+-- Em seguida validar leitura/cadastro/edição conforme o papel e políticas RLS.
