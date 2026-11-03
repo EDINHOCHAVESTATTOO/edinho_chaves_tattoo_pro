@@ -9,7 +9,9 @@ import VisaoGeral from './VisaoGeral';
 import ClientesEstudio from './ClientesEstudio';
 type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
 type StudioRole = 'owner' | 'manager' | 'reception' | 'artist' | 'piercer';
-const fullAccessRoles: readonly StudioRole[] = ['owner', 'manager'];
+// Legacy modules still scope records by user_id; only the original owner may use them.
+// Managers and other staff require studio-scoped RLS and queries before access.
+const fullAccessRoles: readonly StudioRole[] = ['owner'];
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('inicio');
@@ -214,7 +216,7 @@ export default function Home() {
         <p className="notice">Não possui acesso? Solicite ao responsável pelo estúdio.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
-        {!canUseLegacyModules ? <section className="card" role="status"><h2>Acesso da equipe em preparação</h2><p>Seu perfil está vinculado ao estúdio, mas os módulos de agenda, clientes e financeiro ainda dependem de políticas por função no banco. Solicite ao responsável pelo estúdio a liberação após validação.</p></section> : <>
+        {!canUseLegacyModules ? <section className="card" role="status"><h2>Acesso da equipe em preparação</h2><p>Seu perfil está vinculado ao estúdio, mas os módulos de agenda, clientes e financeiro ainda dependem de políticas por função no banco. Por segurança, somente o proprietário pode utilizar os módulos antigos até essa validação. Solicite ao responsável pelo estúdio a liberação após validação.</p></section> : <>
         {tab === 'inicio' && (
   <VisaoGeral
     onOpenClient={(clientId) => {
