@@ -28,3 +28,14 @@ update public.studio_tattoo_consents t set studio_id=p.studio_id from public.pro
 
 -- Não alterar RLS, grants, triggers ou comportamento da aplicação nesta fase.
 commit;
+
+-- Etapa independente de endurecimento de GRANTs (NÃO EXECUTAR SEM TESTES):
+-- REVOKE TRUNCATE, TRIGGER, REFERENCES ON TABLE public.cash_entries, public.profiles,
+--   public.studio_anamnesis_signatures, public.studio_appointments, public.studio_clients,
+--   public.studio_commissions, public.studio_payments, public.studio_professionals,
+--   public.studio_tattoo_consents FROM authenticated;
+-- REVOKE TRUNCATE, TRIGGER, REFERENCES ON TABLE public.cash_entries,
+--   public.studio_anamnesis_signatures, public.studio_appointments, public.studio_clients,
+--   public.studio_commissions, public.studio_payments, public.studio_professionals,
+--   public.studio_tattoo_consents FROM anon;
+-- Verificar grants herdados, dependências, privilégios efetivos e testes funcionais.
