@@ -50,3 +50,9 @@ commit;
 --  'studio_tattoo_consents');
 -- Critério: todas as permissões TRUNCATE acima devem retornar false.
 -- Em seguida validar leitura/cadastro/edição conforme o papel e políticas RLS.
+
+-- Verificações adicionais antes de migração:
+-- 1. Testar rollback em banco local com dados sintéticos.
+-- 2. Confirmar integridade de chaves estrangeiras e políticas WITH CHECK.
+-- 3. Confirmar que SELECT/INSERT/UPDATE/DELETE necessários seguem disponíveis.
+-- 4. NÃO aplicar este rascunho em produção ou na master.
