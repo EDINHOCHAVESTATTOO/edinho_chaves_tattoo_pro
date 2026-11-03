@@ -140,7 +140,10 @@ export default function AgendaEstudio(){
   if(busy||status===a.status)return;
   let recebido=payments.filter(p=>p.appointment_id===a.id).reduce((total,p)=>total+Number(p.amount),0);
   if(status==='cancelado'){
-   const {data:latestPayments,error:paymentError}=await supabase.from('studio_payments').select('amount').eq('appointment_id',a.id);
+   const {studio_id}=await ownerStudio();
+    const {data:linkedAppointment,error:linkedError}=await supabase.from('studio_appointments').select('id').eq('id',a.id).eq('studio_id',studio_id).maybeSingle();
+    if(linkedError||!linkedAppointment){setMessage('Atendimento não pertence ao estúdio autorizado.');return;}
+    const {data:latestPayments,error:paymentError}=await supabase.from('studio_payments').select('amount').eq('appointment_id',a.id);
    if(paymentError){setMessage(`Não foi possível conferir os pagamentos: ${paymentError.message}`);return;}
    recebido=(latestPayments??[]).reduce((total,p)=>total+Number(p.amount),0);
    if(recebido>0&&!window.confirm(`Este atendimento já recebeu ${money(recebido)}. Cancelar não estorna automaticamente pagamentos ou comissões. Deseja continuar?`))return;
