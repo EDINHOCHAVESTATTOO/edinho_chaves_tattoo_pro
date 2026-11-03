@@ -48,7 +48,7 @@ export default function AgendaEstudio(){
   ]);
   const err=[p.error,c.error,a.error,pay.error].find(Boolean);
   if(err)setMessage(`Erro ao carregar: ${err.message}`);
-  else {setPros(p.data as Pro[]);setClients(c.data as Client[]);setAppointments(a.data as Appointment[]);setPayments(pay.data as Payment[]);}
+  else {setPros(p.data as Pro[]);setClients(c.data as Client[]);setAppointments(a.data as Appointment[]);setPayments(pay.data as Payment[]);setMessage((a.data?.length??0)>=1000||(pay.data?.length??0)>=2000?'Atenção: o limite de registros da agenda ou dos pagamentos foi atingido. Alguns registros antigos podem não aparecer.':'' );}
   setLoading(false);
  },[supabase]);
  useEffect(()=>{void load()},[load]);
