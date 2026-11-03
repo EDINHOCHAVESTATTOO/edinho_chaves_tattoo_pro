@@ -57,3 +57,15 @@ Consulta somente leitura em `pg_proc` confirmou `SECURITY DEFINER = true`, `sear
 ## Testes multiestúdio pendentes
 
 Em ambiente isolado, criar somente dados fictícios de dois estúdios. Validar separadamente SELECT, INSERT, UPDATE e DELETE para proprietário, recepção, artista e conta sem perfil. Negar acesso cruzado entre estúdios, impedir alteração de `studio_id` e `user_id` para assumir registros alheios e restringir dados sensíveis. Confirmar que papéis de API não possuem TRUNCATE, TRIGGER ou REFERENCES excessivos. Esses testes ainda não foram executados e não comprovam segurança da configuração atual.
+
+## Resultados verificados no ambiente isolado — 03/11/2026
+
+Projeto Supabase de teste: `prflqdbkgxjgbidzhfbc` (sem dados reais). Estes resultados **não** demonstram autorização multiestúdio ou por função, pois as políticas de teste são simplificadas por `user_id = auth.uid()`.
+
+- Nove tabelas sintéticas com RLS; auditoria de segurança do ambiente: zero alertas após restringir EXECUTE e search_path.
+- Simulação SQL com `SET LOCAL ROLE authenticated` e JWT fictício: dono vê 1 agendamento, outro usuário vê 0, sem identidade vê 0.
+- Dono vê 2 lançamentos do caixa, outro usuário vê 0; anon vê 0 lançamentos.
+- UPDATE de agendamento por outro usuário não retornou linha alterada (transação revertida).
+- Pagamento fictício de R$ 200 gerou receita R$ 200 e comissão R$ 60; conclusão aprovou comissão; pagamento da comissão gerou despesa R$ 60.
+- Tentativas de alterar pagamento lançado e excluir receita vinculada foram rejeitadas pelos gatilhos.
+- **Pendências bloqueadoras**: reproduzir fielmente FKs, constraints e políticas oficiais; testar owner/manager/reception/artist/piercer em dois estúdios com contas autenticadas; executar testes E2E no frontend e verificar migração em cópia isolada do esquema real. Não publicar nem aplicar políticas sintéticas à produção.
