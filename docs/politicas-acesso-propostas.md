@@ -49,3 +49,7 @@ Consulta de 03/11 confirmou que o papel authenticated mantém SELECT em todas as
 ## Auditoria da função current_studio_id (03/11/2026)
 
 Consulta somente leitura em `pg_proc` confirmou `SECURITY DEFINER = true`, `search_path` explicitamente vazio, `EXECUTE` para `authenticated = true` e para `anon = false`. É necessário inspecionar a definição e o proprietário da função e testar isolamento por usuário/estúdio antes de adotá-la nas políticas RLS. A consulta não executou nem alterou a função. O ambiente de branching Supabase não foi criado: plano Free não suporta branching.
+
+## Inspeção da implementação current_studio_id (03/11/2026)
+
+`public.current_studio_id()` é função SQL STABLE SECURITY DEFINER, de propriedade `postgres`, com `search_path` vazio; retorna `studio_id` de `public.profiles` onde `id = (select auth.uid())`. A ACL explícita permite EXECUTE a `authenticated` e `postgres`, não a `anon`. Não recebe parâmetro arbitrário de usuário. Consulta de integridade somente leitura: 1 perfil, 0 sem studio_id, 0 IDs duplicados e 0 referências inválidas a studios. Ainda não há teste de isolamento entre usuários de estúdios diferentes; não declarar segurança multiestúdio comprovada. Nenhuma alteração no banco.
