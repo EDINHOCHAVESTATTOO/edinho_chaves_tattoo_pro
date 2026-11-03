@@ -130,7 +130,9 @@ export default function AgendaEstudio(){
   finally{setBusy(false);}
  }
  async function setStatus(a:Appointment,status:string){
-  if(busy)return;
+  if(busy||status===a.status)return;
+  const recebido=payments.filter(p=>p.appointment_id===a.id).reduce((total,p)=>total+Number(p.amount),0);
+  if(status==='cancelado'&&recebido>0&&!window.confirm(`Este atendimento já recebeu ${money(recebido)}. Cancelar não estorna automaticamente pagamentos ou comissões. Deseja continuar?`))return;
   setBusy(true);setMessage('');
   try{
    const user_id=await owner();
