@@ -87,7 +87,7 @@ export default function AgendaEstudio(){
   setEditNotes(a.notes??'');setMessage('');
  }
  async function saveEdit(){
-  const user_id=await owner();
+  const {studio_id}=await ownerStudio();
   const original=appointments.find(a=>a.id===editingId);
   if(!original)throw new Error('Agendamento não encontrado. Atualize a página.');
   const pro=pros.find(p=>p.id===editPro);
@@ -103,7 +103,7 @@ export default function AgendaEstudio(){
    throw new Error('Este atendimento já possui pagamento. Para preservar as comissões, não é possível trocar o profissional.');
   const endAt=new Date(startAt.getTime()+minutes*60000);
   const {data:conflicts,error:checkError}=await supabase.from('studio_appointments')
-   .select('id').eq('user_id',user_id).eq('professional_id',editPro)
+   .select('id').eq('studio_id',studio_id).eq('professional_id',editPro)
    .neq('id',original.id).neq('status','cancelado')
    .lt('starts_at',endAt.toISOString()).gt('ends_at',startAt.toISOString()).limit(1);
   if(checkError)throw checkError;
@@ -115,7 +115,7 @@ export default function AgendaEstudio(){
    notes:editNotes.trim()
   };
   const {data,error}=await supabase.from('studio_appointments').update(updates)
-   .eq('id',original.id).eq('user_id',user_id).select('id');
+   .eq('id',original.id).eq('studio_id',studio_id).select('id');
   if(error)throw error;
   if(!data?.length)throw new Error('Não foi possível atualizar o agendamento. Verifique as permissões no Supabase.');
   setEditingId(null);
@@ -156,7 +156,7 @@ export default function AgendaEstudio(){
   }catch(err){setMessage(err instanceof Error?err.message:'Não foi possível atualizar o status.');}
   finally{setBusy(false);}
  }
- async function addPayment(){const user_id=await owner();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');if(a.status==='cancelado')throw new Error('Não é possível receber pagamento de atendimento cancelado.');const amount=parseAmount(payAmount);if(!/^\d{4}-\d{2}-\d{2}$/.test(payDate)||Number.isNaN(Date.parse(payDate+'T12:00:00')))throw new Error('Informe uma data válida para o recebimento.');const {data:latestAppointment,error:appointmentError}=await supabase.from('studio_appointments').select('price,status').eq('id',a.id).eq('user_id',user_id).single();if(appointmentError||!latestAppointment)throw new Error('Não foi possível conferir o atendimento atualizado.');if(latestAppointment.status==='cancelado')throw new Error('Este atendimento foi cancelado. Atualize a agenda.');const {data:currentPayments,error:paymentsError}=await supabase.from('studio_payments').select('amount').eq('appointment_id',a.id).eq('user_id',user_id);if(paymentsError)throw paymentsError;const paid=(currentPayments??[]).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(latestAppointment.price)*100))throw new Error('Valor inválido ou superior ao saldo atualizado do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
+ async function addPayment(){const {user_id,studio_id}=await ownerStudio();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');if(a.status==='cancelado')throw new Error('Não é possível receber pagamento de atendimento cancelado.');const amount=parseAmount(payAmount);if(!/^\d{4}-\d{2}-\d{2}$/.test(payDate)||Number.isNaN(Date.parse(payDate+'T12:00:00')))throw new Error('Informe uma data válida para o recebimento.');const {data:latestAppointment,error:appointmentError}=await supabase.from('studio_appointments').select('price,status').eq('id',a.id).eq('studio_id',studio_id).single();if(appointmentError||!latestAppointment)throw new Error('Não foi possível conferir o atendimento atualizado.');if(latestAppointment.status==='cancelado')throw new Error('Este atendimento foi cancelado. Atualize a agenda.');const {data:currentPayments,error:paymentsError}=await supabase.from('studio_payments').select('amount').eq('appointment_id',a.id).eq('user_id',user_id);if(paymentsError)throw paymentsError;const paid=(currentPayments??[]).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(latestAppointment.price)*100))throw new Error('Valor inválido ou superior ao saldo atualizado do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,studio_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
  const shown=appointments.filter(a=>a.starts_at.slice(0,10)===day || new Date(a.starts_at).toLocaleDateString('en-CA')===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
  const paidFor=(id:string)=>payments.filter(p=>p.appointment_id===id).reduce((s,p)=>s+Number(p.amount),0);
  const clientName=(id:string)=>clients.find(x=>x.id===id)?.name??'Cliente';
