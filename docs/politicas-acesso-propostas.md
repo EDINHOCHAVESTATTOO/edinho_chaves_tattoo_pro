@@ -45,3 +45,7 @@ A consulta `has_table_privilege` confirmou TRUNCATE para `authenticated` em nove
 ## Teste de regressão dos privilégios (plano)
 
 Consulta de 03/11 confirmou que o papel authenticated mantém SELECT em todas as dez tabelas examinadas e INSERT nas tabelas operacionais que recebem cadastros e pagamentos. A proposta de revogação atinge apenas TRUNCATE, TRIGGER e REFERENCES, sem revogar SELECT/INSERT/UPDATE/DELETE. Ainda é obrigatório testar privilégios herdados, funções/triggers e fluxos reais em ambiente isolado antes de executar REVOKE. Não há evidência de que a revogação tenha sido aplicada.
+
+## Auditoria da função current_studio_id (03/11/2026)
+
+Consulta somente leitura em `pg_proc` confirmou `SECURITY DEFINER = true`, `search_path` explicitamente vazio, `EXECUTE` para `authenticated = true` e para `anon = false`. É necessário inspecionar a definição e o proprietário da função e testar isolamento por usuário/estúdio antes de adotá-la nas políticas RLS. A consulta não executou nem alterou a função. O ambiente de branching Supabase não foi criado: plano Free não suporta branching.
