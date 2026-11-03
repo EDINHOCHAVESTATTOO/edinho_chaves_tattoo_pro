@@ -57,6 +57,7 @@ export default function Home() {
       const { data, error } = await supabase.from('profiles').select('id,studio_id,role').eq('id', userId).maybeSingle();
       if (error) throw error;
       if (!data?.studio_id || !['owner', 'manager', 'reception', 'artist', 'piercer'].includes(data.role)) throw new Error('Sua conta ainda não foi autorizada para acessar o estúdio.');
+      if (!active) return;
       setStudioRole(data.role as StudioRole);
     }
 
