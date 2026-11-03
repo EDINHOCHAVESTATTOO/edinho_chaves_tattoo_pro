@@ -10,7 +10,11 @@ type Appointment = {id:string;client_id:string;professional_id:string;procedure_
 type Payment = {id:string;appointment_id:string;amount:number;payment_type:string;payment_method:string;paid_on:string};
 const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 const localDate=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
-const parseAmount=(v:string)=>Number(v.trim().replace(/\./g,'').replace(',','.'));
+const parseAmount=(v:string)=>{
+ const normalized=v.trim();
+ if(!/^(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?$/.test(normalized))return NaN;
+ return Number(normalized.replace(/\./g,'').replace(',','.'));
+};
 const timeLabel=(v:string)=>new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
 const localDateTime=(iso:string)=>{
  const d=new Date(iso);
