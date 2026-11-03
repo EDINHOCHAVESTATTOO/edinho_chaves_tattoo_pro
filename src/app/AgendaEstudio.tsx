@@ -140,7 +140,8 @@ export default function AgendaEstudio(){
   if(busy||status===a.status)return;
   let recebido=payments.filter(p=>p.appointment_id===a.id).reduce((total,p)=>total+Number(p.amount),0);
   if(status==='cancelado'){
-   const {studio_id}=await ownerStudio();
+   let studio_id:string;
+    try { ({studio_id}=await ownerStudio()); } catch(err) { setMessage(err instanceof Error?err.message:'Estúdio não autorizado.'); return; }
     const {data:linkedAppointment,error:linkedError}=await supabase.from('studio_appointments').select('id').eq('id',a.id).eq('studio_id',studio_id).maybeSingle();
     if(linkedError||!linkedAppointment){setMessage('Atendimento não pertence ao estúdio autorizado.');return;}
     const {data:latestPayments,error:paymentError}=await supabase.from('studio_payments').select('amount').eq('appointment_id',a.id);
