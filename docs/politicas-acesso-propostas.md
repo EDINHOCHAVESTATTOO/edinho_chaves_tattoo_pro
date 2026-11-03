@@ -37,3 +37,7 @@
 ## Achado adicional: privilégios SQL de profiles (03/11/2026)
 
 Auditoria somente leitura confirmou RLS habilitado em dez tabelas principais. O papel de banco `authenticated` tem privilégios SELECT, REFERENCES, TRIGGER e TRUNCATE em `public.profiles`. **TRUNCATE não é restringido por RLS**, portanto é necessário revisar e revogar privilégios desnecessários em ambiente controlado antes de liberar novas contas. Não executar comandos de revogação sem analisar dependências e testes de regressão. Uma política RLS correta não substitui a revisão de GRANTs.
+
+## Verificação de privilégios (confirmada)
+
+A consulta `has_table_privilege` confirmou TRUNCATE para `authenticated` em nove das dez tabelas examinadas e para `anon` em oito. A tabela `studio_anamneses` não apresentou TRUNCATE para esses papéis. Como TRUNCATE ignora RLS, é obrigatório revisar e revogar os privilégios desnecessários antes de habilitar acesso de funcionários. A revogação ainda não foi executada.
