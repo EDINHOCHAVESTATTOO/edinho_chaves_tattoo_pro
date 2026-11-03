@@ -55,6 +55,7 @@ export default function AgendaEstudio(){
  },[supabase]);
  useEffect(()=>{void load()},[load]);
  async function owner(){const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error('Faça login novamente.');const {data:profile,error:profileError}=await supabase.from('profiles').select('studio_id,role').eq('id',user.id).single();if(profileError||!profile?.studio_id||profile.role!=='owner')throw new Error('Acesso à agenda indisponível: vínculo do estúdio não confirmado.');return user.id;}
+  async function ownerStudio(){const user_id=await owner();const {data,error}=await supabase.from('profiles').select('studio_id').eq('id',user_id).single();if(error||!data?.studio_id)throw new Error('Estúdio não identificado.');return {user_id,studio_id:data.studio_id};}
  async function submit(e:FormEvent<HTMLFormElement>,action:()=>Promise<void>){e.preventDefault();setBusy(true);setMessage('');try{await action();await load();setMessage('Salvo com sucesso.')}catch(err){
   const erro = err as { code?: string; message?: string };
 
@@ -64,18 +65,18 @@ export default function AgendaEstudio(){
       : erro.message || 'Não foi possível salvar.'
   );
 }finally{setBusy(false)}}
- async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
- async function addPro(){const user_id=await owner();if(!proName.trim())throw new Error('Informe o nome do profissional.');const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
+ async function addClient(){const {user_id,studio_id}=await ownerStudio();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,studio_id,name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
+ async function addPro(){const {user_id,studio_id}=await ownerStudio();if(!proName.trim())throw new Error('Informe o nome do profissional.');const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,studio_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
  async function addAppointment(){
-  const user_id=await owner();const p=pros.find(x=>x.id===professionalId);if(!p||!p.active)throw new Error('Selecione um profissional ativo.');
+  const {user_id,studio_id}=await ownerStudio();const p=pros.find(x=>x.id===professionalId);if(!p||!p.active)throw new Error('Selecione um profissional ativo.');
   if(!clientId||!clients.some(c=>c.id===clientId)||!procedure.trim()||!start)throw new Error('Selecione um cliente válido e preencha procedimento e horário.');
   const minutes=Number(duration),value=parseAmount(price),startAt=new Date(start);
   if(!Number.isInteger(minutes)||minutes<15||minutes>720||!Number.isFinite(value)||value<0||Number.isNaN(startAt.getTime()))throw new Error('Confira duração e valor.');
   const endAt=new Date(startAt.getTime()+minutes*60000);
   // Busca conflitos diretamente no banco, inclusive em outros dias carregados.
-  const {data:conflicts,error:checkError}=await supabase.from('studio_appointments').select('id').eq('user_id',user_id).eq('professional_id',professionalId).neq('status','cancelado').lt('starts_at',endAt.toISOString()).gt('ends_at',startAt.toISOString()).limit(1);
+  const {data:conflicts,error:checkError}=await supabase.from('studio_appointments').select('id').eq('studio_id',studio_id).eq('professional_id',professionalId).neq('status','cancelado').lt('starts_at',endAt.toISOString()).gt('ends_at',startAt.toISOString()).limit(1);
   if(checkError)throw checkError;if(conflicts?.length)throw new Error('Esse profissional já tem atendimento nesse horário.');
-  const {error}=await supabase.from('studio_appointments').insert({user_id,client_id:clientId,professional_id:professionalId,procedure_name:procedure.trim(),starts_at:startAt.toISOString(),ends_at:endAt.toISOString(),price:value,commission_percent:p.commission_percent,notes:notes.trim()});
+  const {error}=await supabase.from('studio_appointments').insert({user_id,studio_id,client_id:clientId,professional_id:professionalId,procedure_name:procedure.trim(),starts_at:startAt.toISOString(),ends_at:endAt.toISOString(),price:value,commission_percent:p.commission_percent,notes:notes.trim()});
   if(error)throw error;setProcedure('');setStart('');setPrice('');setNotes('');
  }
  function beginEdit(a:Appointment){
