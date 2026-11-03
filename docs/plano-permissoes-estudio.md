@@ -30,3 +30,17 @@ Auditoria em 03/11/2026. **Não aplicar parcialmente no banco de produção.**
 - Não conceder acesso genérico à equipe a informações de saúde, assinaturas ou consentimentos.
 - Definir regras separadas para leitura, criação e alteração desses documentos, com testes por papel e estúdio.
 - Exigir rastreabilidade e preservar documentos existentes durante qualquer migração.
+
+## Matriz inicial de permissões (proposta, ainda não aplicada)
+
+| Operação | Proprietário | Gerente | Recepção | Tatuador / piercer |
+| --- | --- | --- | --- | --- |
+| Agenda: visualizar e organizar | Sim | Sim | Sim | Somente atendimentos atribuídos |
+| Cadastro de clientes: dados de contato | Sim | Sim | Sim | Somente clientes atribuídos |
+| Anamnese e consentimento | Sim, com necessidade de acesso | Acesso restrito e auditado | Somente coleta/registro, sem consulta geral | Somente documentos necessários ao atendimento |
+| Pagamentos: registrar | Sim | Sim | Sim, sem editar histórico | Não |
+| Fluxo de caixa e relatórios financeiros | Sim | Sim, se autorizado | Não | Não |
+| Comissões | Sim | Sim, se autorizado | Não | Somente valores próprios, se habilitado |
+| Usuários e permissões | Sim | Não por padrão | Não | Não |
+
+**Esta matriz é uma proposta para validação antes da implementação.** As regras efetivas devem ser impostas no banco por RLS e verificadas por testes, não apenas ocultando botões na interface. Dados de saúde e assinaturas requerem acesso mínimo e rastreabilidade. Evitar que um profissional veja documentos de clientes de outro profissional sem vínculo legítimo. Nenhuma permissão é alterada por este documento.
