@@ -43,7 +43,9 @@ export default function FluxoCaixa() {
     setLoading(true);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Sessão expirada. Saia e entre novamente.'); setLoading(false); return; }
-    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id,studio_commission_id').eq('user_id', user.id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+    if (profileError || !profile?.studio_id || profile.role !== 'owner') { setItems([]); setMessage('Acesso financeiro indisponível: vínculo do estúdio não confirmado.'); setLoading(false); return; }
+    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id,studio_commission_id') .eq('studio_id', profile.studio_id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
     if (error) setMessage(`Erro ao carregar: ${error.message}`);
     else { setItems((data ?? []) as Entry[]); setMessage(''); }
     setLoading(false);
@@ -64,7 +66,9 @@ export default function FluxoCaixa() {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Faça login novamente.'); setBusy(false); return; }
     if (!description.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { setMessage('Informe descrição e data válidas.'); setBusy(false); return; }
-    const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+    if (profileError || !profile?.studio_id || profile.role !== 'owner') { setMessage('Acesso financeiro indisponível: vínculo do estúdio não confirmado.'); setBusy(false); return; }
+    const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, studio_id: profile.studio_id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
     if (error) setMessage(`Não foi possível salvar: ${error.message}`);
     else { setDescription(''); setAmount(''); if (month === date.slice(0,7)) await load(); else setMonth(date.slice(0,7)); setMessage('Lançamento salvo com sucesso.'); }
     setBusy(false);
