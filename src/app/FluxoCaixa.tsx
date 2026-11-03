@@ -98,11 +98,14 @@ async function remove(id: string) {
     return;
   }
 
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+  if (profileError || !profile?.studio_id || profile.role !== 'owner') { setMessage('Acesso ao caixa indisponível: vínculo do estúdio não confirmado.'); setBusy(false); return; }
+
   const { data: removed, error } = await supabase
     .from('cash_entries')
     .delete()
     .eq('id', id)
-    .eq('user_id', user.id)
+    .eq('studio_id', profile.studio_id)
     .is('studio_payment_id', null)
     .is('studio_commission_id', null)
     .select('id');
