@@ -59,10 +59,10 @@ export default function AgendaEstudio(){
   );
 }finally{setBusy(false)}}
  async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
- async function addPro(){const user_id=await owner();const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
+ async function addPro(){const user_id=await owner();if(!proName.trim())throw new Error('Informe o nome do profissional.');const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
  async function addAppointment(){
   const user_id=await owner();const p=pros.find(x=>x.id===professionalId);if(!p||!p.active)throw new Error('Selecione um profissional ativo.');
-  if(!clientId||!procedure.trim()||!start)throw new Error('Preencha cliente, procedimento e horário.');
+  if(!clientId||!clients.some(c=>c.id===clientId)||!procedure.trim()||!start)throw new Error('Selecione um cliente válido e preencha procedimento e horário.');
   const minutes=Number(duration),value=parseAmount(price),startAt=new Date(start);
   if(!Number.isInteger(minutes)||minutes<15||minutes>720||!Number.isFinite(value)||value<0||Number.isNaN(startAt.getTime()))throw new Error('Confira duração e valor.');
   const endAt=new Date(startAt.getTime()+minutes*60000);
@@ -142,7 +142,7 @@ export default function AgendaEstudio(){
   }catch(err){setMessage(err instanceof Error?err.message:'Não foi possível atualizar o status.');}
   finally{setBusy(false);}
  }
- async function addPayment(){const user_id=await owner();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');const amount=parseAmount(payAmount);const paid=payments.filter(x=>x.appointment_id===a.id).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(a.price)*100))throw new Error('Valor inválido ou superior ao saldo do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
+ async function addPayment(){const user_id=await owner();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');if(a.status==='cancelado')throw new Error('Não é possível receber pagamento de atendimento cancelado.');const amount=parseAmount(payAmount);const paid=payments.filter(x=>x.appointment_id===a.id).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(a.price)*100))throw new Error('Valor inválido ou superior ao saldo do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
  const shown=appointments.filter(a=>a.starts_at.slice(0,10)===day || new Date(a.starts_at).toLocaleDateString('en-CA')===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
  const paidFor=(id:string)=>payments.filter(p=>p.appointment_id===id).reduce((s,p)=>s+Number(p.amount),0);
  const clientName=(id:string)=>clients.find(x=>x.id===id)?.name??'Cliente';
