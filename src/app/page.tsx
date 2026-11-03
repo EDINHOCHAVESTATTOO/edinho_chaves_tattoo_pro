@@ -8,6 +8,8 @@ import ComissoesEstudio from './ComissoesEstudio';
 import VisaoGeral from './VisaoGeral';
 import ClientesEstudio from './ClientesEstudio';
 type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
+type StudioRole = 'owner' | 'manager' | 'reception' | 'artist' | 'piercer';
+const fullAccessRoles: readonly StudioRole[] = ['owner', 'manager'];
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('inicio');
@@ -15,6 +17,7 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [sessionEmail, setSessionEmail] = useState('');
+  const [studioRole, setStudioRole] = useState<StudioRole | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [busy, setBusy] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
@@ -41,6 +44,7 @@ export default function Home() {
         setMessage('Digite sua nova senha.');
       } else if (event === 'SIGNED_OUT') {
         setSessionEmail('');
+        setStudioRole(null);
         setPassword('');
         setTab('inicio');
         setClienteParaAbrir(null);
@@ -48,9 +52,10 @@ export default function Home() {
     });
 
     async function authorizeUser(userId: string) {
-      const { data, error } = await supabase.from('profiles').select('id,studio_id').eq('id', userId).maybeSingle();
+      const { data, error } = await supabase.from('profiles').select('id,studio_id,role').eq('id', userId).maybeSingle();
       if (error) throw error;
-      if (!data?.studio_id) throw new Error('Sua conta ainda não foi autorizada para acessar o estúdio.');
+      if (!data?.studio_id || !['owner', 'manager', 'reception', 'artist', 'piercer'].includes(data.role)) throw new Error('Sua conta ainda não foi autorizada para acessar o estúdio.');
+      setStudioRole(data.role as StudioRole);
     }
 
     async function initialize() {
@@ -95,6 +100,7 @@ export default function Home() {
               throw authorizationError;
             }
           }
+          if (!session?.user) setStudioRole(null);
           setSessionEmail(session?.user.email ?? '');
         }
       } catch (err) {
@@ -127,6 +133,7 @@ export default function Home() {
       setNewPassword('');
       setPassword('');
       setSessionEmail('');
+      setStudioRole(null);
       setMessage('Senha alterada com sucesso! Entre com sua nova senha.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Não foi possível alterar a senha.');
@@ -141,11 +148,12 @@ export default function Home() {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id').eq('id', data.user.id).maybeSingle();
-      if (profileError || !profile?.studio_id) {
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', data.user.id).maybeSingle();
+      if (profileError || !profile?.studio_id || !['owner', 'manager', 'reception', 'artist', 'piercer'].includes(profile.role)) {
         await supabase.auth.signOut();
         throw new Error('Conta autenticada, mas sem vínculo com o estúdio. É necessário autorizar este usuário no Supabase.');
       }
+      setStudioRole(profile.role as StudioRole);
       setSessionEmail(data.user?.email ?? email);
       setPassword('');setMessage('Login realizado com sucesso.');
     } catch (err) {
@@ -157,6 +165,7 @@ export default function Home() {
     try { await createClient().auth.signOut(); }
     catch (err) { setMessage(err instanceof Error ? err.message : 'Não foi possível sair.'); return; }
     setSessionEmail('');
+    setStudioRole(null);
     setMessage('Sessão encerrada.');
   }
 
@@ -168,6 +177,7 @@ export default function Home() {
     { id: 'comissoes', label: 'Comissões', icon: '%' },
   ];
 
+  const canUseLegacyModules = studioRole !== null && fullAccessRoles.includes(studioRole);
   return <main className="shell">
     <aside className="sidebar">
       <div className="brand">
@@ -178,7 +188,7 @@ export default function Home() {
         }} />
         <div className="brandText">EDINHO CHAVES<small>TATTOO · DESDE 2013</small></div>
       </div>
-      <nav>{tabs.map(t => <button key={t.id} className={tab === t.id ? 'nav active' : 'nav'} onClick={() => setTab(t.id)}><span>{t.icon}</span>{t.label}</button>)}</nav>
+      <nav>{(canUseLegacyModules ? tabs : []).map(t => <button key={t.id} className={tab === t.id ? 'nav active' : 'nav'} onClick={() => setTab(t.id)}><span>{t.icon}</span>{t.label}</button>)}</nav>
       <div className="sidebarFoot">SISTEMA DE GESTÃO<br />DO ESTÚDIO</div>
     </aside>
     <section className="content">
@@ -204,6 +214,7 @@ export default function Home() {
         <p className="notice">Não possui acesso? Solicite ao responsável pelo estúdio.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
+        {!canUseLegacyModules ? <section className="card" role="status"><h2>Acesso da equipe em preparação</h2><p>Seu perfil está vinculado ao estúdio, mas os módulos de agenda, clientes e financeiro ainda dependem de políticas por função no banco. Solicite ao responsável pelo estúdio a liberação após validação.</p></section> : <>
         {tab === 'inicio' && (
   <VisaoGeral
     onOpenClient={(clientId) => {
@@ -216,6 +227,7 @@ export default function Home() {
   <ClientesEstudio clienteParaAbrir={clienteParaAbrir} />
 )}
         {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
+        </>}
         {message && <p className="notice">{message}</p>}
         </>}
       <p className="footerNote">Edinho Chaves Tattoo · Sistema interno de gestão do estúdio.</p>
