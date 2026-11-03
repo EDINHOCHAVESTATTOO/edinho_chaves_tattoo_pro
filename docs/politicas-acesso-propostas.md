@@ -33,3 +33,7 @@
 7. Revisar todas as consultas frontend que hoje filtram por `user_id`.
 
 **Status:** documentação de desenho de segurança; nenhuma política RLS ou conta de usuário foi alterada.
+
+## Achado adicional: privilégios SQL de profiles (03/11/2026)
+
+Auditoria somente leitura confirmou RLS habilitado em dez tabelas principais. O papel de banco `authenticated` tem privilégios SELECT, REFERENCES, TRIGGER e TRUNCATE em `public.profiles`. **TRUNCATE não é restringido por RLS**, portanto é necessário revisar e revogar privilégios desnecessários em ambiente controlado antes de liberar novas contas. Não executar comandos de revogação sem analisar dependências e testes de regressão. Uma política RLS correta não substitui a revisão de GRANTs.
