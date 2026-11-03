@@ -40,10 +40,12 @@ export default function AgendaEstudio(){
   setLoading(true);
   const {data:{user},error:authError}=await supabase.auth.getUser();
   if(authError||!user){setMessage('Sessão expirada. Entre novamente.');setLoading(false);return;}
+  const {data:profile,error:profileError}=await supabase.from('profiles').select('studio_id,role').eq('id',user.id).single();
+  if(profileError||!profile?.studio_id||profile.role!=='owner'){setPros([]);setClients([]);setAppointments([]);setPayments([]);setMessage('Acesso à agenda indisponível: vínculo do estúdio não confirmado.');setLoading(false);return;}
   const [p,c,a,pay]=await Promise.all([
-   supabase.from('studio_professionals').select('id,name,role,commission_percent,active').eq('user_id',user.id).order('name'),
-   supabase.from('studio_clients').select('id,name,phone,notes').eq('user_id',user.id).order('name'),
-   supabase.from('studio_appointments').select('id,client_id,professional_id,procedure_name,starts_at,ends_at,price,commission_percent,status,notes').eq('user_id',user.id).order('starts_at',{ascending:false}).limit(1000),
+   supabase.from('studio_professionals').select('id,name,role,commission_percent,active').eq('studio_id',profile.studio_id).order('name'),
+   supabase.from('studio_clients').select('id,name,phone,notes').eq('studio_id',profile.studio_id).order('name'),
+   supabase.from('studio_appointments').select('id,client_id,professional_id,procedure_name,starts_at,ends_at,price,commission_percent,status,notes').eq('studio_id',profile.studio_id).order('starts_at',{ascending:false}).limit(1000),
    supabase.from('studio_payments').select('id,appointment_id,amount,payment_type,payment_method,paid_on').eq('user_id',user.id).order('paid_on',{ascending:false}).limit(2000)
   ]);
   const err=[p.error,c.error,a.error,pay.error].find(Boolean);
@@ -52,7 +54,7 @@ export default function AgendaEstudio(){
   setLoading(false);
  },[supabase]);
  useEffect(()=>{void load()},[load]);
- async function owner(){const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error('Faça login novamente.');return user.id;}
+ async function owner(){const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error('Faça login novamente.');const {data:profile,error:profileError}=await supabase.from('profiles').select('studio_id,role').eq('id',user.id).single();if(profileError||!profile?.studio_id||profile.role!=='owner')throw new Error('Acesso à agenda indisponível: vínculo do estúdio não confirmado.');return user.id;}
  async function submit(e:FormEvent<HTMLFormElement>,action:()=>Promise<void>){e.preventDefault();setBusy(true);setMessage('');try{await action();await load();setMessage('Salvo com sucesso.')}catch(err){
   const erro = err as { code?: string; message?: string };
 
