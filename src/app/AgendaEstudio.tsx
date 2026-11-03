@@ -147,8 +147,8 @@ export default function AgendaEstudio(){
   }
   setBusy(true);setMessage('');
   try{
-   const user_id=await owner();
-   const {data,error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id).eq('user_id',user_id).eq('status',a.status).select('id');
+   const {studio_id}=await ownerStudio();
+   const {data,error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id).eq('studio_id',studio_id).eq('status',a.status).select('id');
    if(error)throw error;
    if(!data?.length)throw new Error('O atendimento foi alterado em outra sessão. Atualize a agenda antes de tentar novamente.');
    await load();
