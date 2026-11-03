@@ -135,14 +135,19 @@ export default function AgendaEstudio(){
  }
  async function setStatus(a:Appointment,status:string){
   if(busy||status===a.status)return;
-  const recebido=payments.filter(p=>p.appointment_id===a.id).reduce((total,p)=>total+Number(p.amount),0);
-  if(status==='cancelado'&&recebido>0&&!window.confirm(`Este atendimento já recebeu ${money(recebido)}. Cancelar não estorna automaticamente pagamentos ou comissões. Deseja continuar?`))return;
+  let recebido=payments.filter(p=>p.appointment_id===a.id).reduce((total,p)=>total+Number(p.amount),0);
+  if(status==='cancelado'){
+   const {data:latestPayments,error:paymentError}=await supabase.from('studio_payments').select('amount').eq('appointment_id',a.id);
+   if(paymentError){setMessage(`Não foi possível conferir os pagamentos: ${paymentError.message}`);return;}
+   recebido=(latestPayments??[]).reduce((total,p)=>total+Number(p.amount),0);
+   if(recebido>0&&!window.confirm(`Este atendimento já recebeu ${money(recebido)}. Cancelar não estorna automaticamente pagamentos ou comissões. Deseja continuar?`))return;
+  }
   setBusy(true);setMessage('');
   try{
    const user_id=await owner();
-   const {data,error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id).eq('user_id',user_id).select('id');
+   const {data,error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id).eq('user_id',user_id).eq('status',a.status).select('id');
    if(error)throw error;
-   if(!data?.length)throw new Error('Agendamento não encontrado ou acesso não autorizado.');
+   if(!data?.length)throw new Error('O atendimento foi alterado em outra sessão. Atualize a agenda antes de tentar novamente.');
    await load();
    setMessage('Status atualizado. Registrar pagamento é uma ação separada.');
   }catch(err){setMessage(err instanceof Error?err.message:'Não foi possível atualizar o status.');}
