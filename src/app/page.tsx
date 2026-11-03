@@ -159,13 +159,19 @@ export default function Home() {
       setSessionEmail(data.user?.email ?? email);
       setPassword('');setMessage('Login realizado com sucesso.');
     } catch (err) {
+      setSessionEmail('');
+      setStudioRole(null);
+      setTab('inicio');
+      setClienteParaAbrir(null);
       setMessage(err instanceof Error ? err.message : 'Não foi possível entrar.');
     } finally { setBusy(false); }
   }
 
   async function signOut() {
-    try { await createClient().auth.signOut(); }
-    catch (err) { setMessage(err instanceof Error ? err.message : 'Não foi possível sair.'); return; }
+    try {
+      const { error } = await createClient().auth.signOut();
+      if (error) throw error;
+    } catch (err) { setMessage(err instanceof Error ? err.message : 'Não foi possível sair.'); return; }
     setSessionEmail('');
     setStudioRole(null);
     setMessage('Sessão encerrada.');
