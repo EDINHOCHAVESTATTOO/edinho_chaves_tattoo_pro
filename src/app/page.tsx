@@ -85,7 +85,12 @@ export default function Home() {
           window.history.replaceState({}, '', window.location.pathname);
         } else {
           if (session?.user) {
-            await authorizeUser(session.user.id);
+            try {
+              await authorizeUser(session.user.id);
+            } catch (authorizationError) {
+              await supabase.auth.signOut();
+              throw authorizationError;
+            }
           }
           setSessionEmail(session?.user.email ?? '');
         }
