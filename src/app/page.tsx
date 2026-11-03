@@ -41,6 +41,9 @@ export default function Home() {
         setMessage('Digite sua nova senha.');
       } else if (event === 'SIGNED_OUT') {
         setSessionEmail('');
+        setPassword('');
+        setTab('inicio');
+        setClienteParaAbrir(null);
       }
     });
 
