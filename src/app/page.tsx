@@ -139,7 +139,7 @@ export default function Home() {
         throw new Error('Conta autenticada, mas sem vínculo com o estúdio. É necessário autorizar este usuário no Supabase.');
       }
       setSessionEmail(data.user?.email ?? email);
-      setMessage('Login realizado com sucesso.');
+      setPassword('');setMessage('Login realizado com sucesso.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Não foi possível entrar.');
     } finally { setBusy(false); }
