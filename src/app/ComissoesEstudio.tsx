@@ -46,10 +46,13 @@ export default function ComissoesEstudio() {
       return;
     }
 
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+    if (profileError || !profile?.studio_id || profile.role !== 'owner') { setComissoes([]); setProfissionais({}); setErro('Acesso às comissões indisponível: vínculo do estúdio não confirmado.'); setCarregando(false); return; }
+
     const { data, error } = await supabase
       .from('studio_commissions')
       .select('id,payment_id,professional_id,base_amount,rate_percent,commission_amount,status,created_at,paid_at')
-      .eq('user_id', user.id)
+       .eq('studio_id', profile.studio_id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -66,7 +69,7 @@ export default function ComissoesEstudio() {
       const { data: lista, error: erroProfissionais } = await supabase
         .from('studio_professionals')
         .select('id,name')
-        .eq('user_id', user.id)
+        .eq('studio_id', profile.studio_id)
         .in('id', ids);
 
       if (erroProfissionais) setErro(erroProfissionais.message);
@@ -99,13 +102,16 @@ export default function ComissoesEstudio() {
       const { data: { user }, error: erroAuth } = await supabase.auth.getUser();
       if (erroAuth || !user) throw new Error('Sessão expirada. Entre novamente.');
 
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+      if (profileError || !profile?.studio_id || profile.role !== 'owner') throw new Error('Acesso às comissões indisponível.');
+
       // A condição status=approved impede pagar novamente ou liberar uma comissão pendente.
       // O gatilho no banco valida a transição e protege registros já pagos.
       const { data, error } = await supabase
         .from('studio_commissions')
         .update({ status: 'paid', paid_at: new Date().toISOString() })
         .eq('id', comissao.id)
-        .eq('user_id', user.id)
+        .eq('studio_id', profile.studio_id)
         .eq('status', 'approved')
         .select('id');
 
