@@ -53,3 +53,7 @@ Consulta somente leitura em `pg_proc` confirmou `SECURITY DEFINER = true`, `sear
 ## Inspeção da implementação current_studio_id (03/11/2026)
 
 `public.current_studio_id()` é função SQL STABLE SECURITY DEFINER, de propriedade `postgres`, com `search_path` vazio; retorna `studio_id` de `public.profiles` onde `id = (select auth.uid())`. A ACL explícita permite EXECUTE a `authenticated` e `postgres`, não a `anon`. Não recebe parâmetro arbitrário de usuário. Consulta de integridade somente leitura: 1 perfil, 0 sem studio_id, 0 IDs duplicados e 0 referências inválidas a studios. Ainda não há teste de isolamento entre usuários de estúdios diferentes; não declarar segurança multiestúdio comprovada. Nenhuma alteração no banco.
+
+## Testes multiestúdio pendentes
+
+Em ambiente isolado, criar somente dados fictícios de dois estúdios. Validar separadamente SELECT, INSERT, UPDATE e DELETE para proprietário, recepção, artista e conta sem perfil. Negar acesso cruzado entre estúdios, impedir alteração de `studio_id` e `user_id` para assumir registros alheios e restringir dados sensíveis. Confirmar que papéis de API não possuem TRUNCATE, TRIGGER ou REFERENCES excessivos. Esses testes ainda não foram executados e não comprovam segurança da configuração atual.
