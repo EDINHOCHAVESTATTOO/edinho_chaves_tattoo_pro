@@ -56,8 +56,10 @@ export default function ClientesEstudio({
     setCarregando(true); setErro('');
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setErro('Entre novamente no sistema.'); setCarregando(false); return; }
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+    if (profileError || !profile?.studio_id || profile.role !== 'owner') { setClientes([]); setErro('Acesso aos clientes indisponível: vínculo do estúdio não confirmado.'); setCarregando(false); return; }
     const { data, error } = await supabase.from('studio_clients')
-      .select('id,user_id,name,phone,notes,created_at').eq('user_id', user.id).order('name');
+      .select('id,user_id,name,phone,notes,created_at').eq('studio_id', profile.studio_id).order('name');
     if (error) setErro(error.message);
     else setClientes((data ?? []) as Cliente[]);
     setCarregando(false);
@@ -123,10 +125,12 @@ export default function ClientesEstudio({
     setSalvando(true);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user || authError) { setErro('Entre novamente no sistema.'); setSalvando(false); return; }
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', user.id).single();
+    if (profileError || !profile?.studio_id || profile.role !== 'owner') { setErro('Acesso aos clientes indisponível: vínculo do estúdio não confirmado.'); setSalvando(false); return; }
     const valores = { name: nome.trim(), phone: telefone.trim(), notes: notas.trim() };
     const resultado = editando
-      ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('user_id', user.id)
-      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id });
+      ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('studio_id', profile.studio_id)
+      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id, studio_id: profile.studio_id });
     if (resultado.error) setErro(resultado.error.message);
     else { setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); novo(); setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); await carregar(); }
     setSalvando(false);
