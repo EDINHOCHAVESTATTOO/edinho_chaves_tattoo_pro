@@ -23,8 +23,8 @@ export default function NotasFiscaisEstudio(){
    if(authError||!user){if(active)setMessage('Faça login novamente.');return;}
    const {data:profile,error:profileError}=await db.from('profiles').select('studio_id,role').eq('id',user.id).single();
    if(profileError||profile?.role!=='owner'||!profile.studio_id){if(active)setMessage('Acesso restrito ao administrador.');return;}
-   const {data,error}=await db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',profile.studio_id).limit(100);
-   const ap=await db.from('studio_appointments').select('id,procedure_name,price,status,client_id').eq('studio_id',profile.studio_id).eq('status','concluido').limit(500);
+   const {data,error}=await db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',profile.studio_id).order('created_at',{ascending:false}).limit(100);
+   const ap=await db.from('studio_appointments').select('id,procedure_name,price,status,client_id').eq('studio_id',profile.studio_id).eq('status','concluido').order('starts_at',{ascending:false}).limit(500);
    const customerList=await db.from('studio_clients').select('id,name').eq('studio_id',profile.studio_id).limit(1000);
    if(active){setClients((customerList.data??[]) as {id:string;name:string}[]);setDrafts((data??[]) as Draft[]);setAppointments((ap.data??[]) as typeof appointments);setStudio(profile.studio_id);setOwner(user.id);setMessage(error?.message||ap.error?.message||customerList.error?.message||'');}
   }
@@ -48,7 +48,7 @@ export default function NotasFiscaisEstudio(){
    const {error}=await db.from('studio_nfse_drafts').insert({studio_id:studio,user_id:owner,appointment_id:appointment.id,service_description:description.trim(),amount:currentAppointment.price,customer_name:customerName.trim()||null,customer_tax_id:cleanTaxId||null});
    if(error){if(error.code==='23505')throw new Error('Já existe um rascunho fiscal para este atendimento. Atualize a página.');throw error;}
    setMessage('Rascunho criado. Nenhuma nota foi emitida.');setSelected('');setCustomerName('');setCustomerTaxId('');setDescription('');
-   const {data,error:refreshError}=await db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',studio).limit(100);
+   const {data,error:refreshError}=await db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',studio).order('created_at',{ascending:false}).limit(100);
    if(refreshError)setMessage('Rascunho criado, mas não foi possível atualizar a lista. Reabra a página para conferir.');
    else setDrafts((data??[]) as Draft[]);
   }catch(e){setMessage(e instanceof Error?e.message:'Falha ao salvar.');}finally{setBusy(false)}
