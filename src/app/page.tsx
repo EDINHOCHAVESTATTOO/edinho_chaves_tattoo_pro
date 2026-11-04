@@ -8,7 +8,8 @@ import ComissoesEstudio from './ComissoesEstudio';
 import VisaoGeral from './VisaoGeral';
 import ClientesEstudio from './ClientesEstudio';
 import AgendaProfissional from './AgendaProfissional';
-type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
+import NotasFiscaisEstudio from './NotasFiscaisEstudio';
+type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes' | 'notas';
 type StudioRole = 'owner' | 'manager' | 'reception' | 'artist' | 'piercer';
 // Legacy modules still scope records by user_id; only the original owner may use them.
 // Managers and other staff require studio-scoped RLS and queries before access.
@@ -185,6 +186,7 @@ export default function Home() {
     { id: 'agenda', label: 'Agenda', icon: '▦' },
     { id: 'clientes', label: 'Clientes', icon: '♙' },
     { id: 'comissoes', label: 'Comissões', icon: '%' },
+    { id: 'notas', label: 'Notas fiscais', icon: 'NF' },
   ];
 
   const canUseLegacyModules = studioRole !== null && fullAccessRoles.includes(studioRole);
@@ -237,7 +239,7 @@ export default function Home() {
         {tab === 'clientes' && (
   <ClientesEstudio clienteParaAbrir={clienteParaAbrir} />
 )}
-        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
+        {tab === 'notas' && <NotasFiscaisEstudio />}{tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && tab !== 'notas' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         </>}
         {message && <p className="notice">{message}</p>}
         </>}
