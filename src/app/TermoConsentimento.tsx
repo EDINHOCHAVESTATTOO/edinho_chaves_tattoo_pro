@@ -120,8 +120,11 @@ export default function TermoConsentimento({ clientId }: { clientId: string }) {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error('Entre novamente no sistema.');
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id').eq('id', user.id).single();
+      if (profileError || !profile?.studio_id) throw new Error('Não foi possível identificar o estúdio da conta.');
       const { error } = await supabase.from('studio_tattoo_consents').insert({
         user_id: user.id,
+        studio_id: profile.studio_id,
         client_id: clientId,
         procedure_description: descricao.trim(),
         tattoo_location: local.trim(),
