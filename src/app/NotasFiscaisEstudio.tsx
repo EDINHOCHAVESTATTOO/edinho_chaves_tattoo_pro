@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
+import { isValidTaxId } from '@/lib/validarDocumentoFiscal';
 type Draft={id:string;appointment_id:string;service_description:string;amount:number;status:string;customer_name:string|null;customer_tax_id:string|null};
 export default function NotasFiscaisEstudio(){
  const [drafts,setDrafts]=useState<Draft[]>([]);
@@ -38,7 +39,7 @@ export default function NotasFiscaisEstudio(){
    if(user?.id!==owner)throw new Error('Sessão inválida.');
    const cleanTaxId=customerTaxId.replace(/\D/g,'');
    if(!description.trim()||description.length>500)throw new Error('Informe uma descrição válida (até 500 caracteres).');
-   if(cleanTaxId&&!([11,14].includes(cleanTaxId.length)))throw new Error('CPF/CNPJ deve ter 11 ou 14 dígitos.');
+   if(cleanTaxId&&!isValidTaxId(cleanTaxId))throw new Error('CPF/CNPJ inválido: confira os dígitos verificadores.');
    if(customerTaxId.trim()&&!/^[0-9.\/-]+$/.test(customerTaxId.trim()))throw new Error('CPF/CNPJ contém caracteres inválidos.');
    const {error}=await db.from('studio_nfse_drafts').insert({studio_id:studio,user_id:owner,appointment_id:appointment.id,service_description:description.trim(),amount:appointment.price,customer_name:customerName.trim()||null,customer_tax_id:cleanTaxId||null});
    if(error)throw error;
