@@ -35,13 +35,17 @@ export default function NotasFiscaisEstudio(){
   if(!appointment||busy||drafts.some(d=>d.appointment_id===selected))return;
   setBusy(true);setMessage('');
   try{
-   const db=createClient();const {data:{user}}=await db.auth.getUser();
-   if(user?.id!==owner)throw new Error('Sessão inválida.');
+   const db=createClient();const {data:{user},error:authError}=await db.auth.getUser();
+   if(authError||!user||user.id!==owner)throw new Error('Sessão inválida.');
+   const {data:profile,error:profileError}=await db.from('profiles').select('studio_id,role').eq('id',user.id).single();
+   if(profileError||profile?.role!=='owner'||!profile.studio_id||profile.studio_id!==studio)throw new Error('Acesso ao estúdio não autorizado.');
+   const {data:currentAppointment,error:appointmentError}=await db.from('studio_appointments').select('id,price,status').eq('id',appointment.id).eq('studio_id',studio).single();
+   if(appointmentError||!currentAppointment||currentAppointment.status!=='concluido'||!Number.isFinite(Number(currentAppointment.price))||Number(currentAppointment.price)<=0)throw new Error('Atendimento indisponível para rascunho fiscal. Atualize a página.');
    const cleanTaxId=customerTaxId.replace(/\D/g,'');
-   if(!description.trim()||description.length>500)throw new Error('Informe uma descrição válida (até 500 caracteres).');
+   if(!description.trim()||description.trim().length>500)throw new Error('Informe uma descrição válida (até 500 caracteres).');
    if(cleanTaxId&&!isValidTaxId(cleanTaxId))throw new Error('CPF/CNPJ inválido: confira os dígitos verificadores.');
    if(customerTaxId.trim()&&!/^[0-9.\/-]+$/.test(customerTaxId.trim()))throw new Error('CPF/CNPJ contém caracteres inválidos.');
-   const {error}=await db.from('studio_nfse_drafts').insert({studio_id:studio,user_id:owner,appointment_id:appointment.id,service_description:description.trim(),amount:appointment.price,customer_name:customerName.trim()||null,customer_tax_id:cleanTaxId||null});
+   const {error}=await db.from('studio_nfse_drafts').insert({studio_id:studio,user_id:owner,appointment_id:appointment.id,service_description:description.trim(),amount:currentAppointment.price,customer_name:customerName.trim()||null,customer_tax_id:cleanTaxId||null});
    if(error)throw error;
    setMessage('Rascunho criado. Nenhuma nota foi emitida.');setSelected('');setCustomerName('');setCustomerTaxId('');setDescription('');
    const {data}=await db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',studio).limit(100);
