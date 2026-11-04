@@ -7,6 +7,7 @@ import AgendaEstudio from './AgendaEstudio';
 import ComissoesEstudio from './ComissoesEstudio';
 import VisaoGeral from './VisaoGeral';
 import ClientesEstudio from './ClientesEstudio';
+import AgendaProfissional from './AgendaProfissional';
 type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
 type StudioRole = 'owner' | 'manager' | 'reception' | 'artist' | 'piercer';
 // Legacy modules still scope records by user_id; only the original owner may use them.
@@ -54,9 +55,9 @@ export default function Home() {
     });
 
     async function authorizeUser(userId: string) {
-      const { data, error } = await supabase.from('profiles').select('id,studio_id,role').eq('id', userId).maybeSingle();
+      const { data, error } = await supabase.from('profiles').select('id,studio_id,role,professional_id').eq('id', userId).maybeSingle();
       if (error) throw error;
-      if (!data?.studio_id || !['owner', 'manager', 'reception', 'artist', 'piercer'].includes(data.role)) throw new Error('Sua conta ainda não foi autorizada para acessar o estúdio.');
+      if (!data?.studio_id || !['owner', 'manager', 'reception', 'artist', 'piercer'].includes(data.role) || (['artist','piercer'].includes(data.role) && !data.professional_id)) throw new Error('Sua conta ainda não foi autorizada para acessar o estúdio.');
       if (!active) return;
       setStudioRole(data.role as StudioRole);
     }
@@ -151,8 +152,8 @@ export default function Home() {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role').eq('id', data.user.id).maybeSingle();
-      if (profileError || !profile?.studio_id || !['owner', 'manager', 'reception', 'artist', 'piercer'].includes(profile.role)) {
+      const { data: profile, error: profileError } = await supabase.from('profiles').select('studio_id,role,professional_id').eq('id', data.user.id).maybeSingle();
+      if (profileError || !profile?.studio_id || !['owner', 'manager', 'reception', 'artist', 'piercer'].includes(profile.role) || (['artist','piercer'].includes(profile.role) && !profile.professional_id)) {
         await supabase.auth.signOut();
         throw new Error('Conta autenticada, mas sem vínculo com o estúdio. É necessário autorizar este usuário no Supabase.');
       }
@@ -187,6 +188,7 @@ export default function Home() {
   ];
 
   const canUseLegacyModules = studioRole !== null && fullAccessRoles.includes(studioRole);
+  const isProfessional = studioRole === 'artist' || studioRole === 'piercer';
   return <main className="shell">
     <aside className="sidebar">
       <div className="brand">
@@ -223,7 +225,7 @@ export default function Home() {
         <p className="notice">Não possui acesso? Solicite ao responsável pelo estúdio.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
-        {!canUseLegacyModules ? <section className="card" role="status"><h2>Acesso da equipe em preparação</h2><p>Seu perfil está vinculado ao estúdio, mas os módulos de agenda, clientes e financeiro ainda dependem de políticas por função no banco. Por segurança, somente o proprietário pode utilizar os módulos antigos até essa validação. Solicite ao responsável pelo estúdio a liberação após validação.</p></section> : <>
+        {isProfessional ? <AgendaProfissional /> : !canUseLegacyModules ? <section className="card" role="status"><h2>Acesso da equipe em preparação</h2><p>Esta função ainda não está liberada. Solicite ao responsável pelo estúdio.</p></section> : <>
         {tab === 'inicio' && (
   <VisaoGeral
     onOpenClient={(clientId) => {
