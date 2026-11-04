@@ -46,7 +46,7 @@ export default function NotasFiscaisEstudio(){
    if(cleanTaxId&&!isValidTaxId(cleanTaxId))throw new Error('CPF/CNPJ inválido: confira os dígitos verificadores.');
    if(customerTaxId.trim()&&!/^[0-9.\/-]+$/.test(customerTaxId.trim()))throw new Error('CPF/CNPJ contém caracteres inválidos.');
    const {error}=await db.from('studio_nfse_drafts').insert({studio_id:studio,user_id:owner,appointment_id:appointment.id,service_description:description.trim(),amount:currentAppointment.price,customer_name:customerName.trim()||null,customer_tax_id:cleanTaxId||null});
-   if(error)throw error;
+   if(error){if(error.code==='23505')throw new Error('Já existe um rascunho fiscal para este atendimento. Atualize a página.');throw error;}
    setMessage('Rascunho criado. Nenhuma nota foi emitida.');setSelected('');setCustomerName('');setCustomerTaxId('');setDescription('');
    const {data}=await db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',studio).limit(100);
    setDrafts((data??[]) as Draft[]);
