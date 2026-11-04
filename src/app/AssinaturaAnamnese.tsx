@@ -137,10 +137,16 @@ export default function AssinaturaAnamnese({ anamnesisId, clientName }: Props) {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error('Entre novamente no sistema.');
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('studio_id')
+        .eq('id', user.id)
+        .single();
+      if (profileError || !profile?.studio_id) throw new Error('Não foi possível identificar o estúdio da sessão.');
       const imagem = canvasRef.current.toDataURL('image/png');
       const { data, error } = await supabase
         .from('studio_anamnesis_signatures')
-        .insert({ user_id: user.id, anamnesis_id: anamnesisId, signer_name: nome.trim(), signature_data: imagem })
+        .insert({ user_id: user.id, studio_id: profile.studio_id, anamnesis_id: anamnesisId, signer_name: nome.trim(), signature_data: imagem })
         .select('id,signer_name,signature_data,signed_at')
         .single();
       if (error) throw error;
