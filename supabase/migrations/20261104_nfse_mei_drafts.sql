@@ -23,7 +23,7 @@ create policy nfse_owner_select on public.studio_nfse_drafts for select to authe
 drop policy if exists nfse_owner_insert on public.studio_nfse_drafts;
 create policy nfse_owner_insert on public.studio_nfse_drafts for insert to authenticated with check (
  user_id=(select auth.uid()) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='owner' and p.studio_id=studio_nfse_drafts.studio_id)
- and exists(select 1 from public.studio_appointments a where a.id=studio_nfse_drafts.appointment_id and a.user_id=(select auth.uid()) and a.studio_id=studio_nfse_drafts.studio_id and a.status='completed' and a.price=studio_nfse_drafts.amount)
+ and exists(select 1 from public.studio_appointments a where a.id=studio_nfse_drafts.appointment_id and a.user_id=(select auth.uid()) and a.studio_id=studio_nfse_drafts.studio_id and a.status='concluido' and a.price=studio_nfse_drafts.amount)
 );
 drop policy if exists nfse_owner_update on public.studio_nfse_drafts;
 create policy nfse_owner_update on public.studio_nfse_drafts for update to authenticated using (
