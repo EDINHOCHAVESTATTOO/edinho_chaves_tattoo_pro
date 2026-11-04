@@ -2,7 +2,7 @@
 -- Preparada para o ambiente TESTE. Não executar em produção sem revisão.
 -- O vínculo de uma conta é criado somente por um administrador autorizado.
 alter table public.profiles
-  add column if not exists professional_id uuid references public.studio_professionals(id);
+  add column if not exists professional_id uuid;
 
 create index if not exists profiles_professional_id_idx
   on public.profiles (professional_id)
