@@ -120,7 +120,7 @@ export default function Home() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       setSessionEmail(data.user?.email ?? email);
-      setMessage('Login realizado. As telas de gestão serão conectadas às tabelas na próxima etapa.');
+      setMessage('Login realizado com sucesso.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Não foi possível entrar.');
     } finally { setBusy(false); }
