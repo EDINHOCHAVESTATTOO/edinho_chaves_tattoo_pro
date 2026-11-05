@@ -125,10 +125,11 @@ export default function ClientesEstudio({
     if (!user || authError) { setErro('Entre novamente no sistema.'); setSalvando(false); return; }
     const valores = { name: nome.trim(), phone: telefone.trim(), notes: notas.trim() };
     const resultado = editando
-      ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('user_id', user.id)
-      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id });
+      ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('user_id', user.id).select('id')
+      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id }).select('id');
     if (resultado.error) setErro(resultado.error.message);
-    else { setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); novo(); setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); await carregar(); }
+    else if (!resultado.data?.length) setErro('O cadastro não foi salvo. Verifique suas permissões e tente novamente.');
+    else { const avisoSucesso = editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'; novo(); await carregar(); setAviso(avisoSucesso); }
     setSalvando(false);
   }
 
