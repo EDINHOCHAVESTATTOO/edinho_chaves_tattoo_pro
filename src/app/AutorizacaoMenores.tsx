@@ -9,7 +9,7 @@ export default function AutorizacaoMenores(){
  const [profissional,setProfissional]=useState('');const [data,setData]=useState('');
  const [conferido,setConferido]=useState(false);
  const idade=nascimento?(()=>{const d=new Date(nascimento+'T12:00:00');const hoje=new Date();let n=hoje.getFullYear()-d.getFullYear();if(hoje.getMonth()<d.getMonth()||(hoje.getMonth()===d.getMonth()&&hoje.getDate()<d.getDate()))n--;return n;})():null;
- const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&conferido&&idade!==null&&idade>=0&&idade<18);
+ const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&conferido&&idade!==null&&idade>=0&&idade<18);
  return <section className="card">
  <h2>Autorização para menores de 18 anos</h2>
  <p className="notice"><strong>Modelo para impressão, não autorização automática para executar o procedimento.</strong> Antes de atender, confirme a legislação vigente e as exigências da Vigilância Sanitária de Parobé/RS. A assinatura não substitui a verificação de identidade, vínculo legal, documentação e eventuais restrições de idade ou de região do corpo.</p>
@@ -41,6 +41,6 @@ export default function AutorizacaoMenores(){
  <p style={{marginTop:30}}>Local e data: ________________________________________</p>
  <small>Modelo sujeito à revisão jurídica e sanitária. Nenhum dado deste formulário é enviado ao banco de dados pelo aplicativo.</small>
  </article>}
- <style>{`@media print {body *{visibility:hidden!important}.autorizacaoImpressa,.autorizacaoImpressa *{visibility:visible!important}.autorizacaoImpressa{position:absolute;top:0;left:0;width:100%;padding:18mm;color:#111;background:white;font:12pt Arial,sans-serif;line-height:1.5}.autorizacaoImpressa h2{text-align:center}}@media screen {.autorizacaoImpressa{margin-top:24px;border-top:1px solid #aaa;padding-top:20px}}`}</style>
+ <style>{`@media print {body *{visibility:hidden!important}.autorizacaoImpressa,.autorizacaoImpressa *{visibility:visible!important}.autorizacaoImpressa{position:absolute;top:0;left:0;box-sizing:border-box;width:100%;padding:15mm;color:#111;background:white;font:12pt Arial,sans-serif;line-height:1.5}.autorizacaoImpressa h2{text-align:center}.autorizacaoImpressa p{break-inside:avoid}}@media screen {.autorizacaoImpressa{margin-top:24px;border-top:1px solid #aaa;padding-top:20px}}`}</style>
  </section>;
 }
