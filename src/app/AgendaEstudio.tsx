@@ -169,7 +169,7 @@ export default function AgendaEstudio(){
   if(error)throw error;
   setPayAmount('');setPayAppointment('');
  }
- const shown=appointments.filter(a=>a.starts_at.slice(0,10)===day || new Date(a.starts_at).toLocaleDateString('en-CA')===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
+ const shown=appointments.filter(a=>localDateTime(a.starts_at).slice(0,10)===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
  const paidFor=(id:string)=>payments.filter(p=>p.appointment_id===id).reduce((s,p)=>s+Number(p.amount),0);
  const clientName=(id:string)=>clients.find(x=>x.id===id)?.name??'Cliente';
  const proNameOf=(id:string)=>pros.find(x=>x.id===id)?.name??'Profissional';
