@@ -124,9 +124,20 @@ export default function ClientesEstudio({
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user || authError) { setErro('Entre novamente no sistema.'); setSalvando(false); return; }
     const valores = { name: nome.trim(), phone: telefone.trim(), notes: notas.trim() };
+    let studioId: string | undefined;
+    if (!editando) {
+      const { data: profile, error: profileError } = await supabase.from('profiles')
+        .select('studio_id,role').eq('id', user.id).single();
+      if (profileError || !profile?.studio_id || profile.role !== 'owner') {
+        setErro('Seu usuário não está vinculado como proprietário a um estúdio. Verifique o perfil no ambiente de testes.');
+        setSalvando(false);
+        return;
+      }
+      studioId = profile.studio_id;
+    }
     const resultado = editando
       ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('user_id', user.id).select('id')
-      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id }).select('id');
+      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id, studio_id: studioId }).select('id');
     if (resultado.error) setErro(resultado.error.message);
     else if (!resultado.data?.length) setErro('O cadastro não foi salvo. Verifique suas permissões e tente novamente.');
     else { const avisoSucesso = editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'; novo(); await carregar(); setAviso(avisoSucesso); }
