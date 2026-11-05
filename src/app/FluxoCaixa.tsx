@@ -56,6 +56,8 @@ export default function FluxoCaixa() {
     e.preventDefault(); setBusy(true); setMessage('');
     const parsed = Number(amount.replace(/\./g,'').replace(',','.'));
     if (!Number.isFinite(parsed) || parsed <= 0) { setMessage('Informe um valor maior que zero.'); setBusy(false); return; }
+    if (!description.trim()) { setMessage('Informe a descrição do lançamento.'); setBusy(false); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T12:00:00`).getTime()) || new Date(`${date}T12:00:00`).toISOString().slice(0,10) !== date) { setMessage('Informe uma data válida.'); setBusy(false); return; }
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Faça login novamente.'); setBusy(false); return; }
     const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
