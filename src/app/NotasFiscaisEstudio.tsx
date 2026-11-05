@@ -41,6 +41,7 @@ export default function NotasFiscaisEstudio(){
  async function saveDraft(){
   const appointment=appointments.find(a=>a.id===selected);
   if(!authorized||!studio||!owner||!appointment||busy||drafts.some(d=>d.appointment_id===selected))return;
+  if(!description.trim()||description.trim().length>500){setMessage('Informe uma descrição válida (até 500 caracteres).');return;}
   setBusy(true);setMessage('');
   try{
    const db=createClient();const {data:{user},error:authError}=await db.auth.getUser();
