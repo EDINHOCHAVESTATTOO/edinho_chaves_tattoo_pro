@@ -39,18 +39,19 @@ export async function POST(request:NextRequest){
  for(const a of appointments||[]){
   if(!a.starts_at||!a.ends_at||Date.parse(a.ends_at)<=Date.parse(a.starts_at)){failed++;continue}
   const eventId='e'+a.id.replace(/-/g,'');
+  if(existingEvents.some(e=>e.id===eventId&&e.status!=='cancelled')){already++;continue}
   const occupied=existingEvents.some(e=>{
    if(e.status==='cancelled'||e.transparency==='transparent'||e.id===eventId)return false;
    const start=e.start?.dateTime||e.start?.date,end=e.end?.dateTime||e.end?.date;
    return !!start&&!!end&&Date.parse(start)<Date.parse(a.ends_at)&&Date.parse(end)>Date.parse(a.starts_at);
   });
   if(occupied){conflicts++;continue}
+  if(dryRun){ready++;continue}
   const endpoint=listUrl+'/'+eventId;
   const headers={Authorization:'Bearer '+access,'Content-Type':'application/json'};
   const existing=await fetch(endpoint,{headers:{Authorization:headers.Authorization},cache:'no-store'});
   if(existing.ok){already++;continue}
   if(existing.status!==404){failed++;continue}
-  if(dryRun){ready++;continue}
   const response=await fetch('https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(conn.calendar_id||'primary')+'/events',{method:'POST',headers,body:JSON.stringify({id:eventId,summary:'Atendimento reservado — Edinho Chaves Tattoo',start:{dateTime:a.starts_at},end:{dateTime:a.ends_at},description:'Reserva criada no Edinho Chaves Tattoo Pro. Dados do cliente permanecem no sistema.'}),cache:'no-store'});
   if(response.ok)created++;else if(response.status===409)already++;else failed++;
  }
