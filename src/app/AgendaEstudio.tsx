@@ -153,7 +153,7 @@ export default function AgendaEstudio(){
   const amount=parseAmount(payAmount);
   if(!Number.isFinite(amount)||amount<=0)
     throw new Error('Valor inválido. Digite 10,00 sem símbolo de moeda.');
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(payDate)||Number.isNaN(new Date(`${payDate}T12:00:00`).getTime()))
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(payDate)||Number.isNaN(new Date(`${payDate}T12:00:00`).getTime()))
     throw new Error('Data inválida. Toque no campo de data e selecione o dia novamente.');
   const {data:current,error:appointmentError}=await supabase.from('studio_appointments')
     .select('id,price,status').eq('id',a.id).eq('user_id',user_id).single();
