@@ -151,8 +151,10 @@ export default function AgendaEstudio(){
   const a=appointments.find(x=>x.id===payAppointment);
   if(!a)throw new Error('Selecione um agendamento.');
   const amount=parseAmount(payAmount);
-  if(!Number.isFinite(amount)||amount<=0||!/^\\d{4}-\\d{2}-\\d{2}$/.test(payDate))
-    throw new Error('Informe um valor positivo e uma data válida.');
+  if(!Number.isFinite(amount)||amount<=0)
+    throw new Error('Valor inválido. Digite 10,00 sem símbolo de moeda.');
+  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(payDate)||Number.isNaN(new Date(`${payDate}T12:00:00`).getTime()))
+    throw new Error('Data inválida. Toque no campo de data e selecione o dia novamente.');
   const {data:current,error:appointmentError}=await supabase.from('studio_appointments')
     .select('id,price,status').eq('id',a.id).eq('user_id',user_id).single();
   if(appointmentError||!current)throw appointmentError??new Error('Atendimento não encontrado.');
