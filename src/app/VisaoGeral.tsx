@@ -44,7 +44,7 @@ export default function VisaoGeral({ onOpenClient }: { onOpenClient?: (clientId:
       const [resCaixa, resAgenda, resComissoes] = await Promise.all([
         supabase.from('cash_entries').select('id,kind,description,category,amount,occurred_on,payment_method').eq('user_id', user.id).eq('is_homologation', false).gte('occurred_on', inicio).lt('occurred_on', fim).order('occurred_on', { ascending: false }),
         supabase.from('studio_appointments').select('id,procedure_name,starts_at,status,price').eq('user_id', user.id).eq('is_homologation', false).gte('starts_at', inicioHoje).lte('starts_at', fimHoje).order('starts_at', { ascending: true }),
-        supabase.from('studio_commissions').select('id,commission_amount,status,created_at,paid_at').eq('user_id', user.id),
+        supabase.from('studio_commissions').select('id,commission_amount,status,created_at,paid_at').eq('user_id', user.id).eq('is_homologation', false),
       ]);
       if (resCaixa.error) throw resCaixa.error;
       if (resAgenda.error) throw resAgenda.error;
