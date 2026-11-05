@@ -1,17 +1,7 @@
 'use client';
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useState } from 'react';
 
 export default function AutorizacaoMenores(){
- const assinaturaCanvas=useRef<HTMLCanvasElement|null>(null);
- const desenhando=useRef(false);
- const [assinaturaResponsavel,setAssinaturaResponsavel]=useState('');
- const [assinaturaIniciada,setAssinaturaIniciada]=useState(false);
- useEffect(()=>{const c=assinaturaCanvas.current;if(!c)return;const ctx=c.getContext('2d');if(!ctx)return;ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle='#111';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round'},[]);
- function ponto(e:PointerEvent<HTMLCanvasElement>){const r=e.currentTarget.getBoundingClientRect();return {x:(e.clientX-r.left)*e.currentTarget.width/r.width,y:(e.clientY-r.top)*e.currentTarget.height/r.height}}
- function iniciarAssinatura(e:PointerEvent<HTMLCanvasElement>){e.currentTarget.setPointerCapture(e.pointerId);const ctx=e.currentTarget.getContext('2d');if(!ctx)return;const p=ponto(e);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+.1,p.y+.1);ctx.stroke();desenhando.current=true;setAssinaturaIniciada(true);setAssinaturaResponsavel('')}
- function moverAssinatura(e:PointerEvent<HTMLCanvasElement>){if(!desenhando.current)return;const p=ponto(e);const ctx=e.currentTarget.getContext('2d');ctx?.lineTo(p.x,p.y);ctx?.stroke()}
- function limparAssinatura(){const c=assinaturaCanvas.current;const ctx=c?.getContext('2d');if(c&&ctx){ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height)}setAssinaturaIniciada(false);setAssinaturaResponsavel('')}
- function confirmarAssinatura(){if(!assinaturaIniciada||!assinaturaCanvas.current)return;setAssinaturaResponsavel(assinaturaCanvas.current.toDataURL('image/png'))}
  const [tipo,setTipo]=useState<'tatuagem'|'piercing'>('tatuagem');
  const [menor,setMenor]=useState('');const [nascimento,setNascimento]=useState('');
  const [responsavel,setResponsavel]=useState('');const [parentesco,setParentesco]=useState('');const [documento,setDocumento]=useState('');
@@ -22,7 +12,7 @@ export default function AutorizacaoMenores(){
  const [normasConferidas,setNormasConferidas]=useState(false);
  const nascimentoFuturo = !!nascimento && nascimento > (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
  const idadeNaData = nascimento && data ? (() => { const d = new Date(nascimento + 'T12:00:00'); const a = new Date(data + 'T12:00:00'); let n = a.getFullYear() - d.getFullYear(); if (a.getMonth() < d.getMonth() || (a.getMonth() === d.getMonth() && a.getDate() < d.getDate())) n--; return n; })() : null;
- const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&!nascimentoFuturo&&conferido&&documentosConferidos&&normasConferidas&&assinaturaResponsavel&&idadeNaData!==null&&idadeNaData>=0&&idadeNaData<18);
+ const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&!nascimentoFuturo&&conferido&&documentosConferidos&&normasConferidas&&idadeNaData!==null&&idadeNaData>=0&&idadeNaData<18);
  return <section className="card">
  <h2>Autorização para menores de 18 anos</h2>
  <p className="notice"><strong>Modelo para impressão, não autorização automática para executar o procedimento.</strong> Antes de atender, confirme a legislação vigente e as exigências da Vigilância Sanitária de Parobé/RS. A assinatura não substitui a verificação de identidade, vínculo legal, documentação e eventuais restrições de idade ou de região do corpo.</p>
@@ -44,13 +34,6 @@ export default function AutorizacaoMenores(){
  <label><input type="checkbox" checked={conferido} onChange={e=>setConferido(e.target.checked)}/> Confirmo que a identidade, o vínculo legal e a possibilidade jurídica/sanitária do procedimento serão verificados antes do atendimento.</label>
  <label><input type="checkbox" checked={documentosConferidos} onChange={e=>setDocumentosConferidos(e.target.checked)}/> Conferi presencialmente os documentos de identidade do menor e do responsável e a comprovação de vínculo legal.</label>
  <label><input type="checkbox" checked={normasConferidas} onChange={e=>setNormasConferidas(e.target.checked)}/> Confirmei que este procedimento, nesta idade e região do corpo, é permitido pelas normas locais aplicáveis.</label>
- <div style={{border:'1px solid #80642c',borderRadius:8,padding:12}}>
- <strong>Assinatura do pai, mãe ou responsável legal</strong>
- <p>O responsável deve assinar pessoalmente na tela. A assinatura será incluída no PDF, mas não será armazenada automaticamente no sistema.</p>
- <canvas ref={assinaturaCanvas} width={460} height={180} onPointerDown={iniciarAssinatura} onPointerMove={moverAssinatura} onPointerUp={()=>{desenhando.current=false}} onPointerCancel={()=>{desenhando.current=false}} style={{display:'block',width:'100%',maxWidth:460,height:180,background:'#fff',borderRadius:6,touchAction:'none',border:'1px solid #80642c'}} aria-label="Assinatura do responsável legal"/>
- <div style={{display:'flex',gap:10,marginTop:10,flexWrap:'wrap'}}><button type="button" onClick={limparAssinatura}>Limpar assinatura</button><button type="button" disabled={!assinaturaIniciada} onClick={confirmarAssinatura}>Confirmar assinatura</button></div>
- {assinaturaResponsavel&&<p role="status">Assinatura pronta para inclusão no PDF. Alterações nos dados exigem nova conferência.</p>}
- </div>
  <button type="button" className="primary" disabled={!valido} onClick={()=>window.print()}>Imprimir / salvar em PDF</button>
  </div>
  {valido&&<article className="autorizacaoImpressa">
@@ -61,10 +44,10 @@ export default function AutorizacaoMenores(){
  <p>Eu, responsável legal acima identificado(a), declaro que fui informado(a) sobre a natureza do procedimento, seus riscos, incluindo dor, sangramento, infecção, alergias, cicatrização e possíveis resultados permanentes. Declaro ter recebido orientações de cuidados e autorizo o procedimento descrito, <strong>somente se sua realização for permitida pela legislação e pelas normas sanitárias aplicáveis.</strong></p>
  <p>Declaro que os documentos apresentados são autênticos e que possuo poderes legais para representar o(a) menor. Reconheço que esta autorização não dispensa a avaliação profissional, a anamnese, o consentimento informado e as exigências da autoridade sanitária.</p>
  <p style={{marginTop:20}}>________________________________________<br/>Assinatura do menor (ciência, quando aplicável)</p>
- <div style={{marginTop:24,marginBottom:16}}>{assinaturaResponsavel&&<img src={assinaturaResponsavel} alt="Assinatura do responsável legal" style={{display:'block',width:260,height:100,objectFit:'contain',borderBottom:'1px solid #111'}}/>}<p>Assinatura do responsável legal: {responsavel}</p></div>
+ <p style={{marginTop:24}}>________________________________________<br/>Assinatura do responsável legal: {responsavel}</p>
  <p style={{marginTop:30}}>________________________________________<br/>Assinatura do profissional</p>
  <p style={{marginTop:30}}>Local e data: ________________________________________</p>
- <small>Modelo sujeito à revisão jurídica e sanitária. A assinatura é incluída apenas na impressão/PDF; nenhum dado deste formulário é enviado ao banco de dados pelo aplicativo.</small>
+ <small>Modelo sujeito à revisão jurídica e sanitária. Assinaturas devem ser coletadas presencialmente no documento impresso; nenhum dado deste formulário é enviado ao banco de dados pelo aplicativo.</small>
  </article>}
  <style>{`.noPrint select{background:#0c0c0c;border:1px solid #383838;color:#f4f1ea;border-radius:8px;padding:12px}.noPrint input[type=checkbox]{width:18px;height:18px;accent-color:#d5a83e;padding:0}.noPrint label:has(input[type=checkbox]){display:flex;align-items:flex-start;gap:10px}@media print {@page{size:A4;margin:12mm}html,body{margin:0!important;padding:0!important;background:#fff!important;color:#111!important;height:auto!important;min-height:0!important;overflow:visible!important}body *{display:none!important}body *:has(.autorizacaoImpressa){display:block!important;position:static!important;min-height:0!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;background:#fff!important;box-shadow:none!important;overflow:visible!important;transform:none!important}.autorizacaoImpressa,.autorizacaoImpressa *{display:block!important;visibility:visible!important}.autorizacaoImpressa{position:static!important;box-sizing:border-box!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;border:0!important;background:#fff!important;color:#111!important;font:11pt Arial,sans-serif!important;line-height:1.35!important;break-inside:avoid!important}.autorizacaoImpressa strong{display:inline!important}.autorizacaoImpressa h2{font-size:16pt!important;text-align:center!important;margin:0 0 7mm!important}.autorizacaoImpressa h3{font-size:12pt!important;margin:0 0 5mm!important}.autorizacaoImpressa p{margin:0 0 5mm!important;break-inside:avoid!important}.autorizacaoImpressa small{font-size:8pt!important}}@media screen {.autorizacaoImpressa{margin-top:24px;border-top:1px solid #aaa;padding-top:20px}}`}</style>
  </section>;
