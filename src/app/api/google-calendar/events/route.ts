@@ -32,12 +32,20 @@ export async function GET(request:NextRequest){
   const tokenData=await tokenResponse.json();
   const start=new Date();start.setDate(start.getDate()-7);
   const end=new Date();end.setDate(end.getDate()+60);
-  const params=new URLSearchParams({timeMin:start.toISOString(),timeMax:end.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'250',fields:'nextPageToken,items(id,start,end,status,transparency)' });
   const calendarId=encodeURIComponent(connection.calendar_id||'primary');
-  const response=await fetch('https://www.googleapis.com/calendar/v3/calendars/'+calendarId+'/events?'+params,{headers:{Authorization:'Bearer '+tokenData.access_token},cache:'no-store'});
-  if(!response.ok)return NextResponse.json({connected:true,error:'Falha ao consultar Google Agenda'},{status:502});
-  const data=await response.json();
-  const events=(data.items||[]).filter((e:{status?:string;transparency?:string;start?:{dateTime?:string;date?:string};end?:{dateTime?:string;date?:string}})=>e.status!=='cancelled'&&e.transparency!=='transparent').map((e:{id:string;start?:{dateTime?:string;date?:string};end?:{dateTime?:string;date?:string}})=>({id:e.id,start:e.start?.dateTime||e.start?.date,end:e.end?.dateTime||e.end?.date,allDay:!!e.start?.date}));
-  return NextResponse.json({connected:true,events,hasMore:Boolean(data.nextPageToken),readOnly:true},{headers:{'Cache-Control':'no-store'}});
+  const events:{id:string;start:string|undefined;end:string|undefined;allDay:boolean}[]=[];
+  let pageToken:string|undefined;
+  let pages=0;
+  do{
+   const params=new URLSearchParams({timeMin:start.toISOString(),timeMax:end.toISOString(),singleEvents:'true',orderBy:'startTime',maxResults:'250',fields:'nextPageToken,items(id,start,end,status,transparency)'});
+   if(pageToken)params.set('pageToken',pageToken);
+   const response=await fetch('https://www.googleapis.com/calendar/v3/calendars/'+calendarId+'/events?'+params,{headers:{Authorization:'Bearer '+tokenData.access_token},cache:'no-store'});
+   if(!response.ok)return NextResponse.json({connected:true,error:'Falha ao consultar Google Agenda'},{status:502});
+   const data=await response.json();
+   events.push(...(data.items||[]).filter((e:{status?:string;transparency?:string})=>e.status!=='cancelled'&&e.transparency!=='transparent').map((e:{id:string;start?:{dateTime?:string;date?:string};end?:{dateTime?:string;date?:string}})=>({id:e.id,start:e.start?.dateTime||e.start?.date,end:e.end?.dateTime||e.end?.date,allDay:!!e.start?.date})));
+   pageToken=data.nextPageToken;
+   pages++;
+  }while(pageToken&&pages<8);
+  return NextResponse.json({connected:true,events,hasMore:Boolean(pageToken),readOnly:true},{headers:{'Cache-Control':'no-store'}});
  }catch{return NextResponse.json({connected:true,error:'Falha ao ler agenda conectada'},{status:500})}
 }
