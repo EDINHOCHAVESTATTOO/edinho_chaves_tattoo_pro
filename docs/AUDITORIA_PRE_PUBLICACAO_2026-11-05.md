@@ -25,3 +25,6 @@ Escopo: somente leitura no Supabase e inspeção do deploy de preview. **Nenhuma
 - [ ] Conferir anamnese, consentimento, assinatura e impressão em celular e computador.
 - [ ] Validar juridicamente autorização para menores antes de uso real.
 - [ ] Obter aprovação explícita para merge/publicação; não alterar master ou produção antes disso.
+
+## Verificação complementar das funções
+As funções current_role() e current_studio_id() foram inspecionadas por leitura de suas definições no banco. Ambas usam SECURITY DEFINER, search_path vazio e filtram public.profiles pelo auth.uid() atual. A leitura não demonstrou exposição direta de perfis alheios, mas a permissão de execução por usuários autenticados ainda requer revisão de dependências e autorização. Nenhuma alteração foi aplicada ao banco.
