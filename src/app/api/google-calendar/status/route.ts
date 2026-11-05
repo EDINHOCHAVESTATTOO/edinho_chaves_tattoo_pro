@@ -15,7 +15,7 @@ export async function GET() {
     connected: false,
     syncEnabled: false,
     message: configured
-      ? 'Credenciais presentes; autorização e armazenamento seguro ainda precisam ser habilitados.'
+      ? 'Integração configurada. Verifique sua conexão após entrar no aplicativo. O envio automático está desativado.'
       : 'Configuração Google Cloud pendente. A sincronização automática permanece desativada.',
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
