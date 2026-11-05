@@ -12,7 +12,8 @@ export async function POST(request:NextRequest){
  const supabase=createClient(url,anon,{global:{headers:{Authorization:'Bearer '+token}},auth:{persistSession:false}});
  const {data:{user},error}=await supabase.auth.getUser(token);
  if(error||!user)return NextResponse.json({error:'Sessão inválida'},{status:401});
- const {data:conn,error:connError}=await supabase.from('google_calendar_connections').select('encrypted_refresh_token,calendar_id').eq('user_id',user.id).maybeSingle();
+ const {data:connections,error:connError}=await supabase.rpc('calendar_server_connection',{p_secret:process.env.GOOGLE_CALENDAR_DB_ACCESS_SECRET||''});
+ const conn=connections?.[0];
  if(connError||!conn)return NextResponse.json({error:'Google Agenda não conectado'},{status:409});
  const dryRun=true; // Fail closed: writing is disabled until server-side token isolation and synchronization tests are complete.
  const {data:appointments,error:dbError}=await supabase.from('studio_appointments').select('id,starts_at,ends_at,status').eq('user_id',user.id).eq('status','agendado').gte('starts_at',new Date().toISOString()).lte('starts_at',new Date(Date.now()+60*86400000).toISOString()).order('starts_at').limit(100);
