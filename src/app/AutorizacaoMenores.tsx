@@ -10,8 +10,9 @@ export default function AutorizacaoMenores(){
  const [conferido,setConferido]=useState(false);
  const [documentosConferidos,setDocumentosConferidos]=useState(false);
  const [normasConferidas,setNormasConferidas]=useState(false);
+ const nascimentoFuturo = !!nascimento && nascimento > (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
  const idadeNaData = nascimento && data ? (() => { const d = new Date(nascimento + 'T12:00:00'); const a = new Date(data + 'T12:00:00'); let n = a.getFullYear() - d.getFullYear(); if (a.getMonth() < d.getMonth() || (a.getMonth() === d.getMonth() && a.getDate() < d.getDate())) n--; return n; })() : null;
- const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&conferido&&documentosConferidos&&normasConferidas&&idadeNaData!==null&&idadeNaData>=0&&idadeNaData<18);
+ const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&!nascimentoFuturo&&conferido&&documentosConferidos&&normasConferidas&&idadeNaData!==null&&idadeNaData>=0&&idadeNaData<18);
  return <section className="card">
  <h2>Autorização para menores de 18 anos</h2>
  <p className="notice"><strong>Modelo para impressão, não autorização automática para executar o procedimento.</strong> Antes de atender, confirme a legislação vigente e as exigências da Vigilância Sanitária de Parobé/RS. A assinatura não substitui a verificação de identidade, vínculo legal, documentação e eventuais restrições de idade ou de região do corpo.</p>
@@ -19,6 +20,7 @@ export default function AutorizacaoMenores(){
  <label>Procedimento<select value={tipo} onChange={e=>{setTipo(e.target.value as 'tatuagem'|'piercing');setNormasConferidas(false)}}><option value="tatuagem">Tatuagem</option><option value="piercing">Piercing</option></select></label>
  <label>Nome completo do menor<input value={menor} onChange={e=>{setMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
  <label>Data de nascimento<input type="date" max={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()} value={nascimento} onChange={e=>{setNascimento(e.target.value);setNormasConferidas(false)}}/></label>
+ {nascimentoFuturo&&<p className="notice" role="alert">A data de nascimento não pode ser futura.</p>}
  {idadeNaData!==null&&idadeNaData>=18&&<p className="notice">Na data prevista, o cliente será maior de idade. Utilize o termo para adultos.</p>}
  {idadeNaData!==null&&idadeNaData>=0&&<p className="muted">Idade na data prevista: {idadeNaData} anos.</p>}
  <label>Documento de identificação do menor<input value={identificacaoMenor} onChange={e=>{setIdentificacaoMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
