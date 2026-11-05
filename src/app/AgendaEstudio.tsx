@@ -47,7 +47,7 @@ export default function AgendaEstudio(){
   else {setPros(p.data as Pro[]);setClients(c.data as Client[]);setAppointments(a.data as Appointment[]);setPayments(pay.data as Payment[]);}
   setLoading(false);
  },[supabase]);
- useEffect(()=>{void load()},[load]);
+ useEffect(()=>{void load().catch(err=>{setMessage(err instanceof Error?err.message:'Não foi possível carregar os dados.');setLoading(false);})},[load]);
  async function owner(){const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error('Faça login novamente.');return user.id;}
  async function submit(e:FormEvent<HTMLFormElement>,action:()=>Promise<void>){e.preventDefault();setBusy(true);setMessage('');try{await action();await load();setMessage('Salvo com sucesso.')}catch(err){
   const erro = err as { code?: string; message?: string };
