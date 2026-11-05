@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const json=await res.json();
     if(typeof json.refresh_token!=='string' || !json.refresh_token) return redirect('refresh_token_missing');
     const encrypted=encrypt(json.refresh_token,key);
-    const {error:saveError}=await supabase.from('google_calendar_connections').upsert({user_id:user.id,encrypted_refresh_token:encrypted,calendar_id:'primary',updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    const {error:saveError}=await supabase.rpc('calendar_server_save',{p_secret:process.env.GOOGLE_CALENDAR_DB_ACCESS_SECRET||'',p_token:encrypted,p_calendar_id:'primary'});
     if(saveError) return redirect('save_failed');
     return redirect('connected');
   } catch { return redirect('authorization_failed'); }
