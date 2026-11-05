@@ -60,7 +60,7 @@ export default function FluxoCaixa() {
     if (authError || !user) { setMessage('Faça login novamente.'); setBusy(false); return; }
     const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
     if (error) setMessage(`Não foi possível salvar: ${error.message}`);
-    else { setDescription(''); setAmount(''); setMonth(date.slice(0,7)); await load(); setMessage('Lançamento salvo com sucesso.'); }
+    else { setDescription(''); setAmount(''); const savedMonth = date.slice(0,7); if (savedMonth === month) await load(); else setMonth(savedMonth); setMessage('Lançamento salvo com sucesso.'); }
     setBusy(false);
   }
 
