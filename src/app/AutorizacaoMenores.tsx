@@ -10,7 +10,6 @@ export default function AutorizacaoMenores(){
  const [conferido,setConferido]=useState(false);
  const [documentosConferidos,setDocumentosConferidos]=useState(false);
  const [normasConferidas,setNormasConferidas]=useState(false);
- const idade=nascimento?(()=>{const d=new Date(nascimento+'T12:00:00');const hoje=new Date();let n=hoje.getFullYear()-d.getFullYear();if(hoje.getMonth()<d.getMonth()||(hoje.getMonth()===d.getMonth()&&hoje.getDate()<d.getDate()))n--;return n;})():null;
  const idadeNaData = nascimento && data ? (() => { const d = new Date(nascimento + 'T12:00:00'); const a = new Date(data + 'T12:00:00'); let n = a.getFullYear() - d.getFullYear(); if (a.getMonth() < d.getMonth() || (a.getMonth() === d.getMonth() && a.getDate() < d.getDate())) n--; return n; })() : null;
  const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&conferido&&documentosConferidos&&normasConferidas&&idadeNaData!==null&&idadeNaData>=0&&idadeNaData<18);
  return <section className="card">
@@ -19,9 +18,9 @@ export default function AutorizacaoMenores(){
  <div className="form noPrint">
  <label>Procedimento<select value={tipo} onChange={e=>{setTipo(e.target.value as 'tatuagem'|'piercing');setNormasConferidas(false)}}><option value="tatuagem">Tatuagem</option><option value="piercing">Piercing</option></select></label>
  <label>Nome completo do menor<input value={menor} onChange={e=>{setMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
- <label>Data de nascimento<input type="date" value={nascimento} onChange={e=>{setNascimento(e.target.value);setNormasConferidas(false)}}/></label>
+ <label>Data de nascimento<input type="date" max={new Date().toLocaleDateString('en-CA')} value={nascimento} onChange={e=>{setNascimento(e.target.value);setNormasConferidas(false)}}/></label>
  {idadeNaData!==null&&idadeNaData>=18&&<p className="notice">Na data prevista, o cliente será maior de idade. Utilize o termo para adultos.</p>}
- {idade!==null&&<p className="muted">Idade calculada: {idade} anos{idade>=18?' — utilize o termo de adulto.':''}</p>}
+ {idadeNaData!==null&&idadeNaData>=0&&<p className="muted">Idade na data prevista: {idadeNaData} anos.</p>}
  <label>Documento de identificação do menor<input value={identificacaoMenor} onChange={e=>{setIdentificacaoMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
  <label>Nome completo do pai, mãe ou responsável legal<input value={responsavel} onChange={e=>{setResponsavel(e.target.value);setDocumentosConferidos(false)}}/></label>
  <label>Vínculo com o menor<input value={parentesco} onChange={e=>{setParentesco(e.target.value);setDocumentosConferidos(false)}} placeholder="Mãe, pai, tutor legal..."/></label>
