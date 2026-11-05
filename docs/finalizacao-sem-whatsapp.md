@@ -35,3 +35,14 @@ A integração com WhatsApp está fora do escopo desta entrega. Não remover as 
 
 ## Restrições
 Não alterar master, não apagar dados existentes e não promover uma versão sem testes bem-sucedidos.
+
+## Verificação técnica adicional — 05/11/2026
+- [x] Build Vercel do commit `8b9c54fbe331856ba65ca2fd6f148c77a4f5ef36`: READY (preview)
+- [x] Auditoria SQL somente leitura: 0 pagamentos acima do preço, 0 pagamentos em atendimentos cancelados, 0 pagamentos sem lançamento no caixa e 0 pagamentos sem comissão quando a taxa do atendimento é maior que zero
+- [x] Confirmada presença de gatilho `studio_validate_payment_before_insert` com bloqueio do agendamento, validação de saldo e rejeição de pagamentos cancelados
+- [x] Confirmada restrição de sobreposição de horários no banco (`studio_appointments_no_overlap`)
+- [ ] Testes autenticados de ponta a ponta ainda não realizados: login, criação/edição de dados, recuperação de senha, impressão, fluxo financeiro e permissões
+- [ ] Alertas de segurança pendentes no Supabase: `btree_gist` no schema public, execução autenticada de `current_role` e `current_studio_id` (dependentes de RLS), proteção contra senhas vazadas desativada
+- [ ] Revisão/merge da PR e publicação em produção pendentes de testes e validação do ambiente
+
+**Atenção:** status READY atesta compilação/deploy, não o funcionamento completo do aplicativo. Não declarar produção validada apenas com esses resultados.
