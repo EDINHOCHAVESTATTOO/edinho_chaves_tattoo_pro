@@ -17,19 +17,19 @@ export default function AutorizacaoMenores(){
  <h2>Autorização para menores de 18 anos</h2>
  <p className="notice"><strong>Modelo para impressão, não autorização automática para executar o procedimento.</strong> Antes de atender, confirme a legislação vigente e as exigências da Vigilância Sanitária de Parobé/RS. A assinatura não substitui a verificação de identidade, vínculo legal, documentação e eventuais restrições de idade ou de região do corpo.</p>
  <div className="form noPrint">
- <label>Procedimento<select value={tipo} onChange={e=>setTipo(e.target.value as 'tatuagem'|'piercing')}><option value="tatuagem">Tatuagem</option><option value="piercing">Piercing</option></select></label>
- <label>Nome completo do menor<input value={menor} onChange={e=>setMenor(e.target.value)}/></label>
- <label>Data de nascimento<input type="date" value={nascimento} onChange={e=>setNascimento(e.target.value)}/></label>
+ <label>Procedimento<select value={tipo} onChange={e=>{setTipo(e.target.value as 'tatuagem'|'piercing');setNormasConferidas(false)}}><option value="tatuagem">Tatuagem</option><option value="piercing">Piercing</option></select></label>
+ <label>Nome completo do menor<input value={menor} onChange={e=>{setMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
+ <label>Data de nascimento<input type="date" value={nascimento} onChange={e=>{setNascimento(e.target.value);setNormasConferidas(false)}}/></label>
  {idadeNaData!==null&&idadeNaData>=18&&<p className="notice">Na data prevista, o cliente será maior de idade. Utilize o termo para adultos.</p>}
  {idade!==null&&<p className="muted">Idade calculada: {idade} anos{idade>=18?' — utilize o termo de adulto.':''}</p>}
- <label>Documento de identificação do menor<input value={identificacaoMenor} onChange={e=>setIdentificacaoMenor(e.target.value)}/></label>
- <label>Nome completo do pai, mãe ou responsável legal<input value={responsavel} onChange={e=>setResponsavel(e.target.value)}/></label>
- <label>Vínculo com o menor<input value={parentesco} onChange={e=>setParentesco(e.target.value)} placeholder="Mãe, pai, tutor legal..."/></label>
- <label>Documento do responsável<input value={documento} onChange={e=>setDocumento(e.target.value)}/></label>
- <label>Descrição do procedimento<input value={procedimento} onChange={e=>setProcedimento(e.target.value)}/></label>
- <label>Região do corpo<input value={local} onChange={e=>setLocal(e.target.value)}/></label>
+ <label>Documento de identificação do menor<input value={identificacaoMenor} onChange={e=>{setIdentificacaoMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
+ <label>Nome completo do pai, mãe ou responsável legal<input value={responsavel} onChange={e=>{setResponsavel(e.target.value);setDocumentosConferidos(false)}}/></label>
+ <label>Vínculo com o menor<input value={parentesco} onChange={e=>{setParentesco(e.target.value);setDocumentosConferidos(false)}} placeholder="Mãe, pai, tutor legal..."/></label>
+ <label>Documento do responsável<input value={documento} onChange={e=>{setDocumento(e.target.value);setDocumentosConferidos(false)}}/></label>
+ <label>Descrição do procedimento<input value={procedimento} onChange={e=>{setProcedimento(e.target.value);setNormasConferidas(false)}}/></label>
+ <label>Região do corpo<input value={local} onChange={e=>{setLocal(e.target.value);setNormasConferidas(false)}}/></label>
  <label>Profissional responsável<input value={profissional} onChange={e=>setProfissional(e.target.value)}/></label>
- <label>Data prevista<input type="date" value={data} onChange={e=>setData(e.target.value)}/></label>
+ <label>Data prevista<input type="date" value={data} onChange={e=>{setData(e.target.value);setNormasConferidas(false)}}/></label>
  <label><input type="checkbox" checked={conferido} onChange={e=>setConferido(e.target.checked)}/> Confirmo que a identidade, o vínculo legal e a possibilidade jurídica/sanitária do procedimento serão verificados antes do atendimento.</label>
  <label><input type="checkbox" checked={documentosConferidos} onChange={e=>setDocumentosConferidos(e.target.checked)}/> Conferi presencialmente os documentos de identidade do menor e do responsável e a comprovação de vínculo legal.</label>
  <label><input type="checkbox" checked={normasConferidas} onChange={e=>setNormasConferidas(e.target.checked)}/> Confirmei que este procedimento, nesta idade e região do corpo, é permitido pelas normas locais aplicáveis.</label>
