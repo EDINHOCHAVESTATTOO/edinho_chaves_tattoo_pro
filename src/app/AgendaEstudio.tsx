@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { createClient } from '@/lib/supabase';
 import CalendarioEstudio from './CalendarioEstudio';
 import HorariosEstudio from './HorariosEstudio';
+import DocumentosEstudio from './DocumentosEstudio';
 
 type Pro = {id:string;name:string;role:string;commission_percent:number;active:boolean};
 type Client = {id:string;name:string;phone:string;notes:string};
@@ -26,7 +27,7 @@ const localDateTime=(iso:string)=>{
 export default function AgendaEstudio(){
  const supabase=useMemo(()=>createClient(),[]);
  const [pros,setPros]=useState<Pro[]>([]),[clients,setClients]=useState<Client[]>([]),[appointments,setAppointments]=useState<Appointment[]>([]),[payments,setPayments]=useState<Payment[]>([]);
- const [section,setSection]=useState<'agenda'|'clientes'|'profissionais'>('agenda');
+ const [section,setSection]=useState<'agenda'|'clientes'|'profissionais'|'documentos'>('agenda');
  const [day,setDay]=useState(localDate),[filterPro,setFilterPro]=useState('');
  const [slotPro,setSlotPro]=useState('');
  const [name,setName]=useState(''),[phone,setPhone]=useState(''),[clientNotes,setClientNotes]=useState('');
@@ -195,8 +196,9 @@ export default function AgendaEstudio(){
  const proNameOf=(id:string)=>pros.find(x=>x.id===id)?.name??'Profissional';
  const inputStyle={maxWidth:580};
  return <div style={{display:'grid',gap:18}}>
-  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{(['agenda','clientes','profissionais'] as const).map(s=><button key={s} type="button" className={section===s?'primary':'secondary'} onClick={()=>setSection(s)}>{s==='agenda'?'Agenda':s==='clientes'?'Clientes':'Profissionais'}</button>)}</div>
+  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{(['agenda','clientes','profissionais','documentos'] as const).map(s=><button key={s} type="button" className={section===s?'primary':'secondary'} onClick={()=>setSection(s)}>{s==='agenda'?'Agenda':s==='clientes'?'Clientes':s==='documentos'?'Fichas e anexos':'Profissionais'}</button>)}</div>
   {loading&&<p>Carregando registros...</p>}
+  {section==='documentos'&&<DocumentosEstudio clients={clients}/>}
   {section==='profissionais'&&<><section className="card"><h2>Novo profissional</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addPro)}><label>Nome<input required value={proName} onChange={e=>setProName(e.target.value)}/></label><label>Atuação<select value={role} onChange={e=>setRole(e.target.value)}><option>Tatuador</option><option>Body piercer</option><option>Outro</option></select></label><label>Comissão (%)<input required inputMode="decimal" value={percent} onChange={e=>setPercent(e.target.value)}/></label><button className="primary" disabled={busy}>Cadastrar profissional</button></form></section><section className="card"><h2>Profissionais cadastrados</h2>{pros.map(p=><p key={p.id}>{p.name} — {p.role} — comissão {p.commission_percent}%</p>)}</section></>}
   {section==='clientes'&&<><section className="card"><h2>Novo cliente</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addClient)}><label>Nome<input required value={name} onChange={e=>setName(e.target.value)}/></label><label>Telefone / WhatsApp<input value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>Observações<input value={clientNotes} onChange={e=>setClientNotes(e.target.value)}/></label><button className="primary" disabled={busy}>Cadastrar cliente</button></form></section><section className="card"><h2>Clientes e histórico</h2>{clients.map(c=><div key={c.id} style={{marginBottom:16}}><strong>{c.name}</strong> — {c.phone}<div>{appointments.filter(a=>a.client_id===c.id).map(a=><p key={a.id}>{timeLabel(a.starts_at)} · {a.procedure_name} · {proNameOf(a.professional_id)} · {a.status}</p>)}</div></div>)}</section></>}
   {section==='agenda'&&<><section className="card" style={{display:'none'}}><h2>Google Agenda</h2><p><strong>{googleSetup==='checking'?'Verificando configuração…':googleSetup==='configured'?'Credenciais disponíveis — autorização Google pronta para teste.':'Configuração ou verificação pendente.'}</strong></p><p>Você pode adicionar atendimentos individualmente pelo botão disponível em cada horário. A sincronização automática nos dois sentidos exige a autorização da conta Google e a configuração segura do aplicativo.</p><p className="notice">{googleConnected?'Conta Google autorizada. Sincronização automática ainda não está ativa.':'Nenhuma conta Google autorizada neste usuário. Alterações feitas diretamente no Google ainda não são importadas.'}</p>
