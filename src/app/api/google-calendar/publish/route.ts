@@ -14,6 +14,7 @@ export async function POST(request:NextRequest){
  if(error||!user)return NextResponse.json({error:'Sessão inválida'},{status:401});
  const {data:conn,error:connError}=await supabase.from('google_calendar_connections').select('encrypted_refresh_token,calendar_id').eq('user_id',user.id).maybeSingle();
  if(connError||!conn)return NextResponse.json({error:'Google Agenda não conectado'},{status:409});
+ const dryRun=request.nextUrl.searchParams.get('apply')!=='true';
  const {data:appointments,error:dbError}=await supabase.from('studio_appointments').select('id,starts_at,ends_at,status').eq('user_id',user.id).eq('status','agendado').gte('starts_at',new Date().toISOString()).lte('starts_at',new Date(Date.now()+60*86400000).toISOString()).order('starts_at').limit(100);
  if(dbError)return NextResponse.json({error:'Falha ao consultar atendimentos'},{status:500});
  try{
@@ -21,7 +22,7 @@ export async function POST(request:NextRequest){
  const auth=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:client,client_secret:secret,refresh_token:refresh,grant_type:'refresh_token'}),cache:'no-store'});
  if(!auth.ok)return NextResponse.json({error:'Reautorize o Google Agenda'},{status:502});
  const access=(await auth.json()).access_token;
- let created=0,already=0,failed=0,conflicts=0;
+ let created=0,already=0,failed=0,conflicts=0,ready=0;
  const min=new Date(Date.now()-7*86400000).toISOString(),max=new Date(Date.now()+60*86400000).toISOString();
  const listUrl='https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(conn.calendar_id||'primary')+'/events';
  const existingEvents: {id?:string;start?:{dateTime?:string;date?:string};end?:{dateTime?:string;date?:string};status?:string;transparency?:string}[]=[];
@@ -49,9 +50,10 @@ export async function POST(request:NextRequest){
   const existing=await fetch(endpoint,{headers:{Authorization:headers.Authorization},cache:'no-store'});
   if(existing.ok){already++;continue}
   if(existing.status!==404){failed++;continue}
+  if(dryRun){ready++;continue}
   const response=await fetch('https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(conn.calendar_id||'primary')+'/events',{method:'POST',headers,body:JSON.stringify({id:eventId,summary:'Atendimento reservado — Edinho Chaves Tattoo',start:{dateTime:a.starts_at},end:{dateTime:a.ends_at},description:'Reserva criada no Edinho Chaves Tattoo Pro. Dados do cliente permanecem no sistema.'}),cache:'no-store'});
   if(response.ok)created++;else if(response.status===409)already++;else failed++;
  }
- return NextResponse.json({created,already,failed,conflicts,checked:(appointments||[]).length,mode:'create-only',message:'Eventos existentes não foram alterados ou excluídos.'},{headers:{'Cache-Control':'no-store'}});
+ return NextResponse.json({created,already,failed,conflicts,ready,dryRun,checked:(appointments||[]).length,mode:'create-only',message:'Eventos existentes não foram alterados ou excluídos.'},{headers:{'Cache-Control':'no-store'}});
  }catch{return NextResponse.json({error:'Falha ao sincronizar. Nenhuma exclusão foi realizada.'},{status:500})}
 }
