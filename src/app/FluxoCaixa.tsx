@@ -42,7 +42,7 @@ export default function FluxoCaixa() {
     setLoading(true);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Sessão expirada. Saia e entre novamente.'); setLoading(false); return; }
-    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id').eq('user_id', user.id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
+    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id').eq('user_id', user.id).eq('is_homologation', false).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
     if (error) setMessage(`Erro ao carregar: ${error.message}`);
     else { setItems((data ?? []) as Entry[]); setMessage(''); }
     setLoading(false);
