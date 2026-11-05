@@ -40,7 +40,7 @@ export default function NotasFiscaisEstudio(){
  },[]);
  async function saveDraft(){
   const appointment=appointments.find(a=>a.id===selected);
-  if(!appointment||busy||drafts.some(d=>d.appointment_id===selected))return;
+  if(!authorized||!studio||!owner||!appointment||busy||drafts.some(d=>d.appointment_id===selected))return;
   setBusy(true);setMessage('');
   try{
    const db=createClient();const {data:{user},error:authError}=await db.auth.getUser();
