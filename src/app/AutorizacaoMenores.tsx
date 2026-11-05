@@ -18,7 +18,7 @@ export default function AutorizacaoMenores(){
  <div className="form noPrint">
  <label>Procedimento<select value={tipo} onChange={e=>{setTipo(e.target.value as 'tatuagem'|'piercing');setNormasConferidas(false)}}><option value="tatuagem">Tatuagem</option><option value="piercing">Piercing</option></select></label>
  <label>Nome completo do menor<input value={menor} onChange={e=>{setMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
- <label>Data de nascimento<input type="date" max={new Date().toLocaleDateString('en-CA')} value={nascimento} onChange={e=>{setNascimento(e.target.value);setNormasConferidas(false)}}/></label>
+ <label>Data de nascimento<input type="date" max={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()} value={nascimento} onChange={e=>{setNascimento(e.target.value);setNormasConferidas(false)}}/></label>
  {idadeNaData!==null&&idadeNaData>=18&&<p className="notice">Na data prevista, o cliente será maior de idade. Utilize o termo para adultos.</p>}
  {idadeNaData!==null&&idadeNaData>=0&&<p className="muted">Idade na data prevista: {idadeNaData} anos.</p>}
  <label>Documento de identificação do menor<input value={identificacaoMenor} onChange={e=>{setIdentificacaoMenor(e.target.value);setDocumentosConferidos(false)}}/></label>
