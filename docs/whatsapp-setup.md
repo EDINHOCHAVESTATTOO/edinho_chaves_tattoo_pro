@@ -35,3 +35,13 @@
 - Set `SUPABASE_SECRET_KEY`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, and `WHATSAPP_ACCESS_TOKEN` for Vercel Preview as well as Production.
 - Redeploy the preview after changing environment targets; existing deployments do not inherit new environment settings.
 - Meta's callback points to one URL. A production callback will not invoke the preview branch. Test with a controlled Meta callback change or after explicitly approved release.
+
+
+## Diagnóstico de ambiente (04/11/2026)
+- Inspeção somente leitura: o projeto Vercel possui segredos de WhatsApp e `SUPABASE_SECRET_KEY` com alvo **production**, mas não foram encontradas configurações específicas dessas chaves para a branch `fix/whatsapp-webhook-supabase` em **preview**.
+- A branch `feat/nfse-mei-homologacao` possui `NEXT_PUBLIC_SUPABASE_URL` apontando para um projeto Supabase de testes. Isso **não** configura automaticamente a branch do WhatsApp.
+- O banco principal possui as três tabelas WhatsApp, uma conta cadastrada, zero conversas e zero mensagens. As restrições UNIQUE para `phone_number_id`, `(user_id,phone)` e `whatsapp_message_id` já existem.
+- O banco de testes separado não possui as três tabelas WhatsApp. Antes de testar persistência, criar schema equivalente e dados inteiramente sintéticos, preservando políticas RLS e constraints; não copiar dados de clientes ou credenciais reais.
+- Para testes locais automatizados, usar um payload sintético, assinatura HMAC calculada sobre o corpo exato e um cliente Supabase mockado. Testar GET válido/inválido, POST assinatura inválida, payload inválido, mensagem duplicada e falhas de persistência.
+- Para um teste ponta a ponta real, configurar credenciais Meta de teste, webhook apontando para preview protegido de forma adequada e banco de testes. Confirmar o campo `messages` inscrito na Meta e comparar timestamps de entrega com logs Vercel.
+- Não mudar o callback Meta de produção, a master, variáveis de produção ou realizar deploy sem aprovação específica.
