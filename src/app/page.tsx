@@ -7,7 +7,8 @@ import AgendaEstudio from './AgendaEstudio';
 import ComissoesEstudio from './ComissoesEstudio';
 import VisaoGeral from './VisaoGeral';
 import ClientesEstudio from './ClientesEstudio';
-type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
+import NotasFiscais from './NotasFiscais';
+type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes' | 'notas';
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('inicio');
@@ -139,6 +140,7 @@ export default function Home() {
     { id: 'agenda', label: 'Agenda', icon: '▦' },
     { id: 'clientes', label: 'Clientes', icon: '♙' },
     { id: 'comissoes', label: 'Comissões', icon: '%' },
+    { id: 'notas', label: 'Notas fiscais', icon: 'N' },
   ];
 
   return <main className="shell">
@@ -188,7 +190,7 @@ export default function Home() {
         {tab === 'clientes' && (
   <ClientesEstudio clienteParaAbrir={clienteParaAbrir} />
 )}
-        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
+        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab === 'notas' && <NotasFiscais />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && tab !== 'notas' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
         </>}
       <p className="footerNote">Edinho Chaves Tattoo · Gestão do estúdio</p>
