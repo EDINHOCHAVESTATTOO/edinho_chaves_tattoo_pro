@@ -68,6 +68,7 @@ export default function AgendaEstudio(){
  },[supabase]);
  useEffect(()=>{void load().catch(err=>{setMessage(err instanceof Error?err.message:'Não foi possível carregar os dados.');setLoading(false);})},[load]);
  async function owner(){const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error('Faça login novamente.');return user.id;}
+ async function studioForOwner(userId:string){const {data,error}=await supabase.from('profiles').select('studio_id').eq('id',userId).eq('role','owner').single();if(error||!data?.studio_id)throw new Error('Estúdio não identificado.');return data.studio_id;}
  async function submit(e:FormEvent<HTMLFormElement>,action:()=>Promise<void>){e.preventDefault();setBusy(true);setMessage('');try{await action();await load();setMessage('Salvo com sucesso.')}catch(err){
   const erro = err as { code?: string; message?: string };
 
@@ -77,8 +78,8 @@ export default function AgendaEstudio(){
       : erro.message || 'Não foi possível salvar.'
   );
 }finally{setBusy(false)}}
- async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
- async function addPro(){const user_id=await owner();const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
+ async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,studio_id:await studioForOwner(user_id),name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
+ async function addPro(){const user_id=await owner();const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,studio_id:await studioForOwner(user_id),name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
  async function addAppointment(){
   const user_id=await owner();const p=pros.find(x=>x.id===professionalId);if(!p||!p.active)throw new Error('Selecione um profissional ativo.');
   if(!clientId||!procedure.trim()||!start)throw new Error('Preencha cliente, procedimento e horário.');
@@ -88,7 +89,7 @@ export default function AgendaEstudio(){
   // Busca conflitos diretamente no banco, inclusive em outros dias carregados.
   const {data:conflicts,error:checkError}=await supabase.from('studio_appointments').select('id').eq('user_id',user_id).eq('professional_id',professionalId).neq('status','cancelado').lt('starts_at',endAt.toISOString()).gt('ends_at',startAt.toISOString()).limit(1);
   if(checkError)throw checkError;if(conflicts?.length)throw new Error('Esse profissional já tem atendimento nesse horário.');
-  const {error}=await supabase.from('studio_appointments').insert({user_id,client_id:clientId,professional_id:professionalId,procedure_name:procedure.trim(),starts_at:startAt.toISOString(),ends_at:endAt.toISOString(),price:value,commission_percent:p.commission_percent,notes:notes.trim()});
+  const {error}=await supabase.from('studio_appointments').insert({user_id,studio_id:await studioForOwner(user_id),client_id:clientId,professional_id:professionalId,procedure_name:procedure.trim(),starts_at:startAt.toISOString(),ends_at:endAt.toISOString(),price:value,commission_percent:p.commission_percent,notes:notes.trim()});
   if(error)throw error;setProcedure('');setStart('');setPrice('');setNotes('');
  }
  function beginEdit(a:Appointment){
@@ -185,7 +186,7 @@ export default function AgendaEstudio(){
   if(Math.round((paid+amount)*100)>Math.round(Number(current.price)*100))
     throw new Error('O valor supera o saldo disponível do atendimento.');
   const {error}=await supabase.from('studio_payments').insert({
-    user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate
+    user_id,studio_id:await studioForOwner(user_id),appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate
   });
   if(error)throw error;
   setPayAmount('');setPayAppointment('');
