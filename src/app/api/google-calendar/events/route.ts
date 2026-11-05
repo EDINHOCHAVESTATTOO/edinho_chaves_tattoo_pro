@@ -22,7 +22,8 @@ export async function GET(request:NextRequest){
  const supabase=createClient(url,anon,{global:{headers:{Authorization:'Bearer '+bearer}},auth:{persistSession:false}});
  const {data:{user},error}=await supabase.auth.getUser(bearer);
  if(error||!user)return NextResponse.json({error:'Sessão inválida'},{status:401});
- const {data:connection,error:dbError}=await supabase.from('google_calendar_connections').select('encrypted_refresh_token,calendar_id').eq('user_id',user.id).maybeSingle();
+ const {data:connections,error:dbError}=await supabase.rpc('calendar_server_connection',{p_secret:process.env.GOOGLE_CALENDAR_DB_ACCESS_SECRET||''});
+ const connection=connections?.[0];
  if(dbError)return NextResponse.json({error:'Não foi possível consultar conexão'},{status:500});
  if(!connection)return NextResponse.json({connected:false,events:[]});
  try{
