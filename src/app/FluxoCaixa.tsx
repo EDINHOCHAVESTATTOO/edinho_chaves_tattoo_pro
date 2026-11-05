@@ -88,14 +88,17 @@ async function remove(id: string) {
     return;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('cash_entries')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)
-    .is('studio_payment_id', null);
+    .is('studio_payment_id', null)
+    .select('id');
 
-  if (error) {
+  if (!error && (!data || data.length !== 1)) {
+    setMessage('Lançamento não encontrado ou sem permissão para excluir.');
+  } else if (error) {
     setMessage(`Erro ao excluir: ${error.message}`);
   } else {
     await load();
