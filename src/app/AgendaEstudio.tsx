@@ -12,6 +12,12 @@ const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency
 const localDate=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const parseAmount=(v:string)=>Number(v.trim().replace(/\./g,'').replace(',','.'));
 const timeLabel=(v:string)=>new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+// Exportação manual: não representa sincronização bidirecional.
+const googleCalendarUrl=(a:Appointment)=>{
+ const utc=(v:string)=>new Date(v).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');
+ const query=new URLSearchParams({action:'TEMPLATE',text:'Atendimento — Edinho Chaves Tattoo',dates:`${utc(a.starts_at)}/${utc(a.ends_at)}`,details:'Horário reservado pelo Edinho Chaves Tattoo Pro. Confira alterações diretamente com o estúdio.'});
+ return `https://calendar.google.com/calendar/render?${query.toString()}`;
+};
 const localDateTime=(iso:string)=>{
  const d=new Date(iso);
  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -186,6 +192,7 @@ export default function AgendaEstudio(){
    onFree={(dateTime,proId)=>{setStart(dateTime);setProfessionalId(proId);setMessage('Horário selecionado. Preencha os dados em Novo agendamento e salve.');window.scrollTo({top:0,behavior:'smooth'});}}
    onOccupied={(a)=>{setDay(localDateTime(a.starts_at).slice(0,10));beginEdit(a);setMessage('Atendimento selecionado. Edite na Agenda por dia, logo abaixo.');}} />
   <section className="card"><h2>Calendário mensal</h2><CalendarioEstudio day={day} setDay={setDay} appointments={appointments} clients={clients} filterPro={filterPro}/><h2>Agenda por dia</h2><div style={{display:'flex',gap:12,flexWrap:'wrap'}}><label>Data <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><label>Profissional <select value={filterPro} onChange={e=>setFilterPro(e.target.value)}><option value="">Todos</option>{pros.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label></div>{shown.length===0?<p>Nenhum agendamento nessa data.</p>:shown.map(a=><div key={a.id} style={{borderBottom:'1px solid #555',padding:'14px 0'}}><strong>{timeLabel(a.starts_at)} — {clientName(a.client_id)}</strong><p>{a.procedure_name} · {proNameOf(a.professional_id)} · {money(Number(a.price))}</p><p>Status: {a.status} · Recebido: {money(paidFor(a.id))} · Falta: {money(Math.max(0,Number(a.price)-paidFor(a.id)))}</p><label>Alterar status <select value={a.status} disabled={busy} onChange={e=>void setStatus(a,e.target.value)}>{['agendado','confirmado','concluido','cancelado'].map(s=><option key={s} value={s}>{s}</option>)}</select></label>
+   <a className="secondary" href={googleCalendarUrl(a)} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',margin:'8px 0 12px',textDecoration:'none'}}>Adicionar ao Google Agenda (manual)</a><p style={{fontSize:12,opacity:.8,margin:'0 0 8px'}}>Abre o Google Agenda para você confirmar. Não sincroniza alterações automaticamente.</p>
    {editingId===a.id?(
     <form className="form" style={{...inputStyle,marginTop:16,padding:16,border:'1px solid #a88331',borderRadius:10}} onSubmit={e=>void submitEdit(e)}>
      <h3 style={{color:'#d9aa3d',marginTop:0}}>Editar ou remarcar atendimento</h3>
