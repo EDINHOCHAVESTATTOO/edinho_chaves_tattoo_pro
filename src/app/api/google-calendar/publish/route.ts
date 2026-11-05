@@ -14,7 +14,7 @@ export async function POST(request:NextRequest){
  if(error||!user)return NextResponse.json({error:'Sessão inválida'},{status:401});
  const {data:conn,error:connError}=await supabase.from('google_calendar_connections').select('encrypted_refresh_token,calendar_id').eq('user_id',user.id).maybeSingle();
  if(connError||!conn)return NextResponse.json({error:'Google Agenda não conectado'},{status:409});
- const {data:appointments,error:dbError}=await supabase.from('studio_appointments').select('id,starts_at,ends_at,status').eq('user_id',user.id).neq('status','cancelado').gte('starts_at',new Date(Date.now()-7*86400000).toISOString()).lte('starts_at',new Date(Date.now()+60*86400000).toISOString()).order('starts_at').limit(100);
+ const {data:appointments,error:dbError}=await supabase.from('studio_appointments').select('id,starts_at,ends_at,status').eq('user_id',user.id).eq('status','agendado').gte('starts_at',new Date().toISOString()).lte('starts_at',new Date(Date.now()+60*86400000).toISOString()).order('starts_at').limit(100);
  if(dbError)return NextResponse.json({error:'Falha ao consultar atendimentos'},{status:500});
  try{
  const refresh=decrypt(conn.encrypted_refresh_token,key);
@@ -36,6 +36,7 @@ export async function POST(request:NextRequest){
   if(existingEvents.length>2000)return NextResponse.json({error:'Muitos eventos para verificar com segurança. Nenhum evento criado.'},{status:409});
  }while(pageToken);
  for(const a of appointments||[]){
+  if(!a.starts_at||!a.ends_at||Date.parse(a.ends_at)<=Date.parse(a.starts_at)){failed++;continue}
   const eventId='e'+a.id.replace(/-/g,'');
   const occupied=existingEvents.some(e=>{
    if(e.status==='cancelled'||e.transparency==='transparent'||e.id===eventId)return false;
