@@ -146,7 +146,29 @@ export default function AgendaEstudio(){
     setBusy(false);
   }
  }
- async function addPayment(){const user_id=await owner();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');const amount=parseAmount(payAmount);const paid=payments.filter(x=>x.appointment_id===a.id).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(a.price)*100))throw new Error('Valor inválido ou superior ao saldo do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
+ async function addPayment(){
+  const user_id=await owner();
+  const a=appointments.find(x=>x.id===payAppointment);
+  if(!a)throw new Error('Selecione um agendamento.');
+  const amount=parseAmount(payAmount);
+  if(!Number.isFinite(amount)||amount<=0||!/^\\d{4}-\\d{2}-\\d{2}$/.test(payDate))
+    throw new Error('Informe um valor positivo e uma data válida.');
+  const {data:current,error:appointmentError}=await supabase.from('studio_appointments')
+    .select('id,price,status').eq('id',a.id).eq('user_id',user_id).single();
+  if(appointmentError||!current)throw appointmentError??new Error('Atendimento não encontrado.');
+  if(current.status==='cancelado')throw new Error('Não é possível receber pagamento de atendimento cancelado.');
+  const {data:previous,error:paymentsError}=await supabase.from('studio_payments')
+    .select('amount').eq('user_id',user_id).eq('appointment_id',a.id);
+  if(paymentsError)throw paymentsError;
+  const paid=(previous??[]).reduce((sum,p)=>sum+Number(p.amount),0);
+  if(Math.round((paid+amount)*100)>Math.round(Number(current.price)*100))
+    throw new Error('O valor supera o saldo disponível do atendimento.');
+  const {error}=await supabase.from('studio_payments').insert({
+    user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate
+  });
+  if(error)throw error;
+  setPayAmount('');setPayAppointment('');
+ }
  const shown=appointments.filter(a=>a.starts_at.slice(0,10)===day || new Date(a.starts_at).toLocaleDateString('en-CA')===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
  const paidFor=(id:string)=>payments.filter(p=>p.appointment_id===id).reduce((s,p)=>s+Number(p.amount),0);
  const clientName=(id:string)=>clients.find(x=>x.id===id)?.name??'Cliente';
