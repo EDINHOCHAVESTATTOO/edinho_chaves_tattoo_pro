@@ -8,7 +8,8 @@ import ComissoesEstudio from './ComissoesEstudio';
 import VisaoGeral from './VisaoGeral';
 import ClientesEstudio from './ClientesEstudio';
 import AutorizacaoMenores from './AutorizacaoMenores';
-type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes' | 'menores';
+import DocumentosEstudio from './DocumentosEstudio';
+type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes' | 'menores' | 'documentos';
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('inicio');
@@ -21,6 +22,7 @@ export default function Home() {
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [clienteParaAbrir, setClienteParaAbrir] = useState<string | null>(null);
+  const [clientesDocumentos,setClientesDocumentos] = useState<{id:string;name:string}[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -91,6 +93,8 @@ export default function Home() {
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
+  useEffect(() => { if (tab !== 'documentos' || !sessionEmail) return; let active=true; (async()=>{const db=createClient();const {data:{user}}=await db.auth.getUser();if(!user)return;const {data}=await db.from('studio_clients').select('id,name').eq('user_id',user.id).order('name');if(active)setClientesDocumentos(data||[]);})();return()=>{active=false}; },[tab,sessionEmail]);
+
   async function updatePassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!recoveryReady) return;
@@ -141,6 +145,7 @@ export default function Home() {
     { id: 'clientes', label: 'Clientes', icon: '♙' },
     { id: 'comissoes', label: 'Comissões', icon: '%' },
     { id: 'menores', label: 'Autorização menores', icon: '✎' },
+    { id: 'documentos', label: 'Documentos / Anexos', icon: '▤' },
   ];
 
   return <main className="shell">
@@ -190,7 +195,7 @@ export default function Home() {
         {tab === 'clientes' && (
   <ClientesEstudio clienteParaAbrir={clienteParaAbrir} />
 )}
-        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab === 'menores' && <AutorizacaoMenores />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && tab !== 'menores' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
+        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab === 'menores' && <AutorizacaoMenores />}{tab === 'documentos' && <DocumentosEstudio clients={clientesDocumentos} />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && tab !== 'menores' && tab !== 'documentos' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
         </>}
       <p className="footerNote">Edinho Chaves Tattoo · Gestão do estúdio</p>
