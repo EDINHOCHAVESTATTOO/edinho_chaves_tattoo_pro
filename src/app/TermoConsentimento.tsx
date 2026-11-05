@@ -120,9 +120,12 @@ export default function TermoConsentimento({ clientId }: { clientId: string }) {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error('Entre novamente no sistema.');
+      const { data: clienteVinculado, error: vinculoErro } = await supabase.from('studio_clients').select('studio_id').eq('id', clientId).eq('user_id', user.id).single();
+      if (vinculoErro || !clienteVinculado?.studio_id) throw new Error('Estúdio do cliente não encontrado.');
       const { error } = await supabase.from('studio_tattoo_consents').insert({
         user_id: user.id,
         client_id: clientId,
+        studio_id: clienteVinculado.studio_id,
         procedure_description: descricao.trim(),
         tattoo_location: local.trim(),
         consent_text: textoConsentimento,
