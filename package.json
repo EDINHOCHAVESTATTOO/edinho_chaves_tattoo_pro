@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:fiscal": "node --experimental-strip-types --test tests/validarDocumentoFiscal.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
