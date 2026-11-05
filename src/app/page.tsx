@@ -167,14 +167,14 @@ export default function Home() {
         {message && <p className="notice">{message}</p>}
       </section> : !sessionEmail ? <section className="login card">
         <div className="eyebrow">ACESSO SEGURO</div><h2>Entrar no sistema</h2>
-        <p className="muted">Use um usuário criado em Authentication → Users no Supabase.</p>
+        <p className="muted">Acesse com seu e-mail e senha cadastrados para o estúdio.</p>
         <form onSubmit={signIn} className="form">
           <label>E-mail<input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" /></label>
           <label>Senha<input type="password" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
           <button className="primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
         </form>
         {message && <p className="notice">{message}</p>}
-        <p className="notice">Configure as variáveis Supabase antes de entrar. Não existe senha padrão.</p>
+        <p className="notice">Não existe senha padrão. Se precisar de acesso, contate o administrador do estúdio.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
         {tab === 'inicio' && (
@@ -191,7 +191,7 @@ export default function Home() {
         {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
         </>}
-      <p className="footerNote">O logotipo original é mantido sem redesenho. A aplicação ainda precisa de testes de segurança e configuração de produção.</p>
+      <p className="footerNote">Edinho Chaves Tattoo · Gestão do estúdio</p>
     </section>
   </main>;
 }
