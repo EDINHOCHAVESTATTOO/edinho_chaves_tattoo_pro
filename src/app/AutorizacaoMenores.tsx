@@ -9,7 +9,8 @@ export default function AutorizacaoMenores(){
  const [profissional,setProfissional]=useState('');const [data,setData]=useState('');
  const [conferido,setConferido]=useState(false);
  const idade=nascimento?(()=>{const d=new Date(nascimento+'T12:00:00');const hoje=new Date();let n=hoje.getFullYear()-d.getFullYear();if(hoje.getMonth()<d.getMonth()||(hoje.getMonth()===d.getMonth()&&hoje.getDate()<d.getDate()))n--;return n;})():null;
- const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&conferido&&idade!==null&&idade>=0&&idade<18);
+ const idadeNaData = nascimento && data ? (() => { const d = new Date(nascimento + 'T12:00:00'); const a = new Date(data + 'T12:00:00'); let n = a.getFullYear() - d.getFullYear(); if (a.getMonth() < d.getMonth() || (a.getMonth() === d.getMonth() && a.getDate() < d.getDate())) n--; return n; })() : null;
+ const valido=!!(menor.trim()&&nascimento&&responsavel.trim()&&parentesco.trim()&&documento.trim()&&identificacaoMenor.trim()&&procedimento.trim()&&local.trim()&&profissional.trim()&&data&&new Date(data+'T12:00:00').getTime()>=new Date(nascimento+'T12:00:00').getTime()&&conferido&&idadeNaData!==null&&idadeNaData>=0&&idadeNaData<18);
  return <section className="card">
  <h2>Autorização para menores de 18 anos</h2>
  <p className="notice"><strong>Modelo para impressão, não autorização automática para executar o procedimento.</strong> Antes de atender, confirme a legislação vigente e as exigências da Vigilância Sanitária de Parobé/RS. A assinatura não substitui a verificação de identidade, vínculo legal, documentação e eventuais restrições de idade ou de região do corpo.</p>
@@ -17,6 +18,7 @@ export default function AutorizacaoMenores(){
  <label>Procedimento<select value={tipo} onChange={e=>setTipo(e.target.value as 'tatuagem'|'piercing')}><option value="tatuagem">Tatuagem</option><option value="piercing">Piercing</option></select></label>
  <label>Nome completo do menor<input value={menor} onChange={e=>setMenor(e.target.value)}/></label>
  <label>Data de nascimento<input type="date" value={nascimento} onChange={e=>setNascimento(e.target.value)}/></label>
+ {idadeNaData!==null&&idadeNaData>=18&&<p className="notice">Na data prevista, o cliente será maior de idade. Utilize o termo para adultos.</p>}
  {idade!==null&&<p className="muted">Idade calculada: {idade} anos{idade>=18?' — utilize o termo de adulto.':''}</p>}
  <label>Documento de identificação do menor<input value={identificacaoMenor} onChange={e=>setIdentificacaoMenor(e.target.value)}/></label>
  <label>Nome completo do pai, mãe ou responsável legal<input value={responsavel} onChange={e=>setResponsavel(e.target.value)}/></label>
