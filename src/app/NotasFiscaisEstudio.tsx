@@ -36,7 +36,7 @@ export default function NotasFiscaisEstudio(){
     setStudio(profile.studio_id);setOwner(user.id);setAuthorized(true);setMessage('');
    }
   }
-  void load();return()=>{active=false};
+  void load().catch(()=>{if(active)setMessage('Falha inesperada ao carregar o módulo fiscal. Atualize a página.');});return()=>{active=false};
  },[]);
  async function saveDraft(){
   const appointment=appointments.find(a=>a.id===selected);
