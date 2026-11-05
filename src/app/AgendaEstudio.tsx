@@ -35,7 +35,7 @@ export default function AgendaEstudio(){
  const load=useCallback(async()=>{
   setLoading(true);
   const {data:{user},error:authError}=await supabase.auth.getUser();
-  if(authError||!user){setMessage('Sessão expirada. Entre novamente.');setLoading(false);return;}
+  if(authError||!user){setMessage('Sessão expirada. Entre novamente.');setLoading(false);throw new Error('Sessão expirada. Entre novamente.');}
   const [p,c,a,pay]=await Promise.all([
    supabase.from('studio_professionals').select('id,name,role,commission_percent,active').eq('user_id',user.id).order('name'),
    supabase.from('studio_clients').select('id,name,phone,notes').eq('user_id',user.id).order('name'),
@@ -43,7 +43,7 @@ export default function AgendaEstudio(){
    supabase.from('studio_payments').select('id,appointment_id,amount,payment_type,payment_method,paid_on').eq('user_id',user.id).order('paid_on',{ascending:false}).limit(2000)
   ]);
   const err=[p.error,c.error,a.error,pay.error].find(Boolean);
-  if(err)setMessage(`Erro ao carregar: ${err.message}`);
+  if(err){setMessage(`Erro ao carregar: ${err.message}`);setLoading(false);throw new Error(`Erro ao carregar: ${err.message}`);}
   else {setPros(p.data as Pro[]);setClients(c.data as Client[]);setAppointments(a.data as Appointment[]);setPayments(pay.data as Payment[]);}
   setLoading(false);
  },[supabase]);
