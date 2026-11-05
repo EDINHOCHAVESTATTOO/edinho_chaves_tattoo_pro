@@ -44,6 +44,7 @@ export default function NotasFiscaisEstudio(){
  async function saveDraft(){
   const appointment=appointments.find(a=>a.id===selected);
   if(!authorized||!studio||!owner||!appointment||busy||drafts.some(d=>d.appointment_id===selected))return;
+  if(!Number.isFinite(Number(appointment.price))||Number(appointment.price)<=0){setMessage('Atendimento sem valor válido para rascunho fiscal.');return;}
   if(!description.trim()||description.trim().length>500){setMessage('Informe uma descrição válida (até 500 caracteres).');return;}
   if(customerName.trim().length>200){setMessage('O nome do tomador deve ter até 200 caracteres.');return;}
   const taxIdDigits=customerTaxId.replace(/\D/g,'');
