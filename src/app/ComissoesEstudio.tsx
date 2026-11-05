@@ -49,7 +49,7 @@ export default function ComissoesEstudio() {
     const { data, error } = await supabase
       .from('studio_commissions')
       .select('id,payment_id,professional_id,base_amount,rate_percent,commission_amount,status,created_at,paid_at')
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).eq('is_homologation', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -105,7 +105,7 @@ export default function ComissoesEstudio() {
         .from('studio_commissions')
         .update({ status: 'paid', paid_at: new Date().toISOString() })
         .eq('id', comissao.id)
-        .eq('user_id', user.id)
+        .eq('user_id', user.id).eq('is_homologation', false)
         .eq('status', 'approved')
         .select('id');
 
