@@ -24,9 +24,12 @@ export default function NotasFiscaisEstudio(){
    if(authError||!user){if(active)setMessage('Faça login novamente.');return;}
    const {data:profile,error:profileError}=await db.from('profiles').select('studio_id,role').eq('id',user.id).single();
    if(profileError||profile?.role!=='owner'||!profile.studio_id){if(active)setMessage('Acesso restrito ao administrador.');return;}
-   const {data,error}=await db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',profile.studio_id).order('created_at',{ascending:false}).limit(100);
-   const ap=await db.from('studio_appointments').select('id,procedure_name,price,status,client_id,starts_at').eq('studio_id',profile.studio_id).eq('status','concluido').order('starts_at',{ascending:false}).limit(500);
-   const customerList=await db.from('studio_clients').select('id,name').eq('studio_id',profile.studio_id).limit(1000);
+   const [draftResult,ap,customerList]=await Promise.all([
+    db.from('studio_nfse_drafts').select('id,appointment_id,service_description,amount,status,customer_name,customer_tax_id').eq('studio_id',profile.studio_id).order('created_at',{ascending:false}).limit(100),
+    db.from('studio_appointments').select('id,procedure_name,price,status,client_id,starts_at').eq('studio_id',profile.studio_id).eq('status','concluido').order('starts_at',{ascending:false}).limit(500),
+    db.from('studio_clients').select('id,name').eq('studio_id',profile.studio_id).limit(1000)
+   ]);
+   const {data,error}=draftResult;
    if(active){
     const loadError=error||ap.error||customerList.error;
     if(loadError){setMessage('Não foi possível carregar os dados fiscais. Atualize a página e tente novamente.');return;}
