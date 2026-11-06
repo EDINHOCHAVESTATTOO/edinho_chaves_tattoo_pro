@@ -164,6 +164,27 @@ export default function AgendaEstudio(){
    setMessage(err instanceof Error?err.message:'Não foi possível atualizar o status.');
   }finally{setBusy(false);}
  }
+ async function deleteAppointment(a:Appointment){
+  if(busy)return;
+  const paid=paidFor(a.id);
+  if(paid>0){setMessage(`Este agendamento possui ${money(paid)} em pagamentos registrados. Para preservar caixa e comissões, ele não pode ser excluído. Você pode alterar o status para cancelado.`);return;}
+  if(!window.confirm(`Excluir o agendamento de ${clientName(a.client_id)} em ${timeLabel(a.starts_at)}? Esta ação não poderá ser desfeita.`))return;
+  setBusy(true);setMessage('');
+  try{
+   const user_id=await owner();
+   const {data,error}=await supabase.from('studio_appointments').delete().eq('id',a.id).eq('user_id',user_id).select('id');
+   if(error){
+    if(error.code==='23503')throw new Error('Este agendamento possui registros vinculados e não pode ser excluído. Altere o status para cancelado para preservar o histórico.');
+    throw error;
+   }
+   if(!data?.length)throw new Error('Não foi possível excluir o agendamento. Verifique suas permissões.');
+   if(editingId===a.id)setEditingId(null);
+   if(payAppointment===a.id)setPayAppointment('');
+   await load();
+   setMessage('Agendamento excluído com sucesso.');
+  }catch(err){setMessage(err instanceof Error?err.message:'Não foi possível excluir o agendamento.');}
+  finally{setBusy(false);}
+ }
  async function addPayment(){const user_id=await owner();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');if(a.status==='cancelado')throw new Error('Não é possível registrar recebimento em um atendimento cancelado.');if(!/^\d{4}-\d{2}-\d{2}$/.test(payDate)||Number.isNaN(new Date(`${payDate}T12:00:00`).getTime()))throw new Error('Informe uma data de recebimento válida.');const amount=parseAmount(payAmount);const paid=payments.filter(x=>x.appointment_id===a.id).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(a.price)*100))throw new Error('Valor inválido ou superior ao saldo do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
  const shown=appointments.filter(a=>a.starts_at.slice(0,10)===day || new Date(a.starts_at).toLocaleDateString('en-CA')===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
  const paidFor=(id:string)=>payments.filter(p=>p.appointment_id===id).reduce((s,p)=>s+Number(p.amount),0);
@@ -202,7 +223,7 @@ export default function AgendaEstudio(){
       <button type="button" className="secondary" disabled={busy} onClick={()=>setEditingId(null)}>Cancelar edição</button>
      </div>
     </form>
-   ):<button type="button" className="secondary" style={{marginTop:12}} disabled={busy} onClick={()=>beginEdit(a)}>Editar / Remarcar</button>}
+   ):<div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:12}}><button type="button" className="secondary" disabled={busy} onClick={()=>beginEdit(a)}>Editar / Remarcar</button><button type="button" className="secondary" disabled={busy} onClick={()=>void deleteAppointment(a)}>Excluir agendamento</button></div>}
    </div>)}</section>
   <section className="card"><h2>Registrar pagamento recebido</h2><p>O sinal ou pagamento final entra automaticamente no fluxo de caixa. Marcar como concluído, sozinho, não registra dinheiro.</p><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addPayment)}><label>Atendimento<select required value={payAppointment} onChange={e=>setPayAppointment(e.target.value)}><option value="">Selecione</option>{appointments.filter(a=>a.status!=='cancelado'&&paidFor(a.id)<Number(a.price)).map(a=><option key={a.id} value={a.id}>{clientName(a.client_id)} · {a.procedure_name} · {timeLabel(a.starts_at)} · saldo {money(Number(a.price)-paidFor(a.id))}</option>)}</select></label><label>Tipo<select value={payType} onChange={e=>setPayType(e.target.value)}><option value="sinal">Sinal</option><option value="restante">Restante</option><option value="outro">Outro pagamento</option></select></label><label>Valor recebido (R$)<input required inputMode="decimal" value={payAmount} onChange={e=>setPayAmount(e.target.value)}/></label><label>Forma de pagamento<select value={payMethod} onChange={e=>setPayMethod(e.target.value)}>{['Pix','Dinheiro','Cartão de débito','Cartão de crédito','Transferência','Outro'].map(m=><option key={m}>{m}</option>)}</select></label><label>Data do recebimento<input required type="date" value={payDate} onChange={e=>setPayDate(e.target.value)}/></label><button className="primary" disabled={busy}>Registrar recebimento</button></form></section>
   <section className="card"><h2>Comissões previstas</h2><p>Valores calculados sobre os recebimentos registrados, sem criar despesas automáticas.</p>{pros.map(p=><p key={p.id}>{p.name}: {money(appointments.filter(a=>a.professional_id===p.id&&a.status!=='cancelado').reduce((sum,a)=>sum+paidFor(a.id)*Number(a.commission_percent)/100,0))}</p>)}</section></>}
