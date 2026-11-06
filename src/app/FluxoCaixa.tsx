@@ -35,6 +35,8 @@ export default function FluxoCaixa() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [editingId,setEditingId]=useState<string|null>(null);
+  const [editKind,setEditKind]=useState<'receita'|'despesa'>('receita'),[editDescription,setEditDescription]=useState(''),[editCategory,setEditCategory]=useState('Tatuagem'),[editPayment,setEditPayment]=useState('Pix'),[editAmount,setEditAmount]=useState(''),[editDate,setEditDate]=useState(today);
   const [month, setMonth] = useState(() => today().slice(0,7));
   const supabase = useMemo(() => createClient(), []);
 
@@ -61,6 +63,21 @@ export default function FluxoCaixa() {
     const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
     if (error) setMessage(`Não foi possível salvar: ${error.message}`);
     else { setDescription(''); setAmount(''); if (month === date.slice(0,7)) await load(); else setMonth(date.slice(0,7)); setMessage('Lançamento salvo com sucesso.'); }
+    setBusy(false);
+  }
+
+  function beginEdit(entry:Entry){
+    if(entry.studio_payment_id){setMessage('Este recebimento pertence à agenda. Faça a correção no atendimento.');return;}
+    setEditingId(entry.id);setEditKind(entry.kind);setEditDescription(entry.description);setEditCategory(entry.category);setEditPayment(entry.payment_method);setEditAmount(Number(entry.amount).toFixed(2).replace('.',','));setEditDate(entry.occurred_on);setMessage('');
+  }
+  async function saveEdit(e:FormEvent<HTMLFormElement>){
+    e.preventDefault();if(!editingId)return;setBusy(true);setMessage('');
+    const parsed=Number(editAmount.replace(/\./g,'').replace(',','.'));
+    if(!Number.isFinite(parsed)||parsed<=0){setMessage('Informe um valor maior que zero.');setBusy(false);return;}
+    const {data:{user},error:authError}=await supabase.auth.getUser();
+    if(authError||!user){setMessage('Faça login novamente.');setBusy(false);return;}
+    const {data,error}=await supabase.from('cash_entries').update({kind:editKind,description:editDescription.trim(),category:editCategory,payment_method:editPayment,amount:parsed,occurred_on:editDate}).eq('id',editingId).eq('user_id',user.id).is('studio_payment_id',null).select('id');
+    if(error)setMessage(`Não foi possível atualizar: ${error.message}`);else if(!data?.length)setMessage('Este lançamento não pode ser editado aqui.');else{setEditingId(null);if(month===editDate.slice(0,7))await load();else setMonth(editDate.slice(0,7));setMessage('Lançamento atualizado com sucesso.');}
     setBusy(false);
   }
 
@@ -123,15 +140,9 @@ async function remove(id: string) {
       Vinculado à agenda
     </span>
   ) : (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => void remove(x.id)}
-    >
-      Excluir
-    </button>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" disabled={busy} onClick={()=>beginEdit(x)}>Editar</button><button type="button" disabled={busy} onClick={() => void remove(x.id)}>Excluir</button></div>
   )}
-</td></tr>)}</tbody></table></div>}
+</td></tr>)}{editingId&&<tr><td colSpan={7} style={{padding:12,borderBottom:'1px solid #333'}}><form className="form" onSubmit={saveEdit} style={{display:'grid',gap:10}}><strong>Editar lançamento</strong><label>Tipo<select value={editKind} onChange={e=>{const v=e.target.value as 'receita'|'despesa';setEditKind(v);setEditCategory(v==='receita'?'Tatuagem':'Material');}}><option value="receita">Receita</option><option value="despesa">Despesa</option></select></label><label>Descrição<input required maxLength={150} value={editDescription} onChange={e=>setEditDescription(e.target.value)}/></label><label>Categoria<select value={editCategory} onChange={e=>setEditCategory(e.target.value)}>{(editKind==='receita'?['Tatuagem','Piercing','Joias','Outros']:['Material','Aluguel','Contas','Comissão','Marketing','Outros']).map(v=><option key={v}>{v}</option>)}</select></label><label>Forma de pagamento<select value={editPayment} onChange={e=>setEditPayment(e.target.value)}>{['Pix','Dinheiro','Cartão de débito','Cartão de crédito','Transferência','Outro'].map(v=><option key={v}>{v}</option>)}</select></label><label>Valor (R$)<input required inputMode="decimal" value={editAmount} onChange={e=>setEditAmount(e.target.value)}/></label><label>Data<input required type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}/></label><div style={{display:'flex',gap:8}}><button className="primary" disabled={busy}>{busy?'Salvando...':'Salvar alterações'}</button><button type="button" disabled={busy} onClick={()=>setEditingId(null)}>Cancelar</button></div></form></td></tr>}</tbody></table></div>}
     </section>{message&&<p className="notice" role="status">{message}</p>}
   </div>;
 }
