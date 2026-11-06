@@ -92,7 +92,7 @@ export default function WhatsAppEstudio() {
 
   return <section className="card whatsapp-inbox" aria-label="Conversas do WhatsApp">
     <div className="whatsapp-heading">
-      <div><h2>WhatsApp do estúdio</h2><p className="muted">Consulte as mensagens recebidas. Respostas continuam pelo aplicativo WhatsApp Business.</p></div>
+      <div><h2>WhatsApp do estúdio</h2><p className="muted">Consulte as mensagens recebidas. Respostas em texto continuam pelo aplicativo WhatsApp Business. Envie arquivos pela ficha do cliente, na seção Documentos.</p></div>
       <button className="secondary" type="button" onClick={refresh} disabled={loadingConversations || loadingMessages}>Atualizar mensagens</button>
     </div>
     {conversationError && <p role="alert" className="notice">{conversationError}</p>}
@@ -114,8 +114,8 @@ export default function WhatsAppEstudio() {
           {loadingMessages ? <p role="status">Carregando mensagens…</p> : <>
             <div className="whatsapp-messages">{messages.length === 0 && !messageError && <p className="muted">Nenhuma mensagem registrada nesta página.</p>}{messages.map(message => <article key={message.id} className={`whatsapp-message ${message.direction === 'outgoing' ? 'outgoing' : ''}`}>
               <small>{message.direction === 'outgoing' ? 'Enviada pelo estúdio' : 'Recebida'}</small>
-              <p>{message.message_type === 'text' ? (message.message_text || '(Mensagem sem texto)') : `${mediaLabels[message.message_type] || 'Mensagem de outro formato'} · conteúdo não disponível nesta tela`}</p>
-              <time dateTime={message.created_at}>{dateTime(message.created_at)}</time>
+              <p>{message.message_type === 'text' ? (message.message_text || '(Mensagem sem texto)') : `${mediaLabels[message.message_type] || 'Mensagem de outro formato'}${message.direction === 'outgoing' && message.message_text ? ` · ${message.message_text}` : ' · conteúdo não disponível nesta tela'}`}</p>
+              <time dateTime={message.created_at}>{dateTime(message.created_at)}</time>{message.direction === 'outgoing' && <div><small>{{ queued: 'Processando', accepted: 'Aceito pela Meta', sent: 'Enviado', delivered: 'Entregue', read: 'Lido', failed: 'Falhou', unknown: 'Confirmação pendente — confira no WhatsApp antes de reenviar' }[message.status] || message.status}</small></div>}
             </article>)}</div>
             <div className="whatsapp-pages"><button className="secondary" disabled={!moreMessages} onClick={() => setMessagePage(value => value + 1)}>Mais antigas</button><span>Página {messagePage + 1}</span><button className="secondary" disabled={messagePage === 0} onClick={() => setMessagePage(value => value - 1)}>Mais recentes</button></div>
           </>}
