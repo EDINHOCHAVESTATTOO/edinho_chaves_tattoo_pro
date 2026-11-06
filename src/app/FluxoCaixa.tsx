@@ -67,7 +67,7 @@ export default function FluxoCaixa() {
   }
 
   function beginEdit(entry:Entry){
-    if(entry.studio_payment_id){setMessage('Este recebimento pertence à agenda. Faça a correção no atendimento.');return;}
+    if(entry.studio_payment_id){setMessage('Este recebimento pertence à agenda e é protegido. Abra o atendimento correspondente para corrigir o pagamento sem desalinhar caixa e comissão.');return;}
     setEditingId(entry.id);setEditKind(entry.kind);setEditDescription(entry.description);setEditCategory(entry.category);setEditPayment(entry.payment_method);setEditAmount(Number(entry.amount).toFixed(2).replace('.',','));setEditDate(entry.occurred_on);setMessage('');
   }
   async function saveEdit(e:FormEvent<HTMLFormElement>){
@@ -136,9 +136,7 @@ async function remove(id: string) {
     <section className="card"><h2>Movimentações do mês</h2><label style={{display:'block',marginBottom:14}}>Mês <input type="month" value={month} onChange={e=>setMonth(e.target.value)} /></label>
       {loading?<p>Carregando...</p>:items.length===0?<p>Nenhum lançamento neste mês.</p>:<div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',textAlign:'left'}}><thead><tr>{['Data','Tipo','Descrição','Categoria','Pagamento','Valor',''].map(h=><th key={h} style={{padding:10,borderBottom:'1px solid #444'}}>{h}</th>)}</tr></thead><tbody>{items.map(x=><tr key={x.id}>{[x.occurred_on.split('-').reverse().join('/'),x.kind,x.description,x.category,x.payment_method,money(Number(x.amount))].map((v,i)=><td key={i} style={{padding:10,borderBottom:'1px solid #333'}}>{v}</td>)}<td>
   {x.studio_payment_id ? (
-    <span style={{ color: '#d9aa3b', fontSize: 12 }}>
-      Vinculado à agenda
-    </span>
+    <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button type="button" disabled={busy} onClick={()=>beginEdit(x)}>Editar</button><span style={{ color: '#d9aa3b', fontSize: 12 }}>Vinculado à agenda</span></div>
   ) : (
     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" disabled={busy} onClick={()=>beginEdit(x)}>Editar</button><button type="button" disabled={busy} onClick={() => void remove(x.id)}>Excluir</button></div>
   )}
