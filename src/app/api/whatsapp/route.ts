@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
           .eq("phone_number_id", phoneNumberId)
           .maybeSingle();
 
-        if (accountError) throw accountError;
+        if (accountError) {\n          console.error("Webhook: falha na consulta da conta WhatsApp", { code: accountError.code, message: accountError.message });\n          throw accountError;\n        }
         if (!account) {
           console.warn("Webhook: phone_number_id não cadastrado", phoneNumberId);
           // Do not acknowledge a message we could not persist: Meta may retry.
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
             .upsert(conversationPayload, { onConflict: "user_id,phone" })
             .select("id")
             .single();
-          if (conversationError || !conversation) throw conversationError ?? new Error("Conversa não retornada");
+          if (conversationError) {\n            console.error("Webhook: falha ao salvar conversa", { code: conversationError.code, message: conversationError.message });\n            throw conversationError;\n          }\n          if (!conversation) throw new Error("Conversa não retornada");
 
           const type = typeof message.type === "string" ? message.type : "unknown";
           const textPayload = isRecord(message.text) ? message.text : {};
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
             message_text: messageText,
             status: "received",
           }, { onConflict: "whatsapp_message_id", ignoreDuplicates: true });
-          if (messageError) throw messageError;
+          if (messageError) {\n            console.error("Webhook: falha ao salvar mensagem", { code: messageError.code, message: messageError.message });\n            throw messageError;\n          }
         }
       }
     }
