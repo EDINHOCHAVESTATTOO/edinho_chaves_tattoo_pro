@@ -60,6 +60,26 @@ export default function AgendaEstudio(){
 }finally{setBusy(false)}}
  async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
  async function addPro(){const user_id=await owner();const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
+ async function deletePro(p:Pro){
+  if(busy)return;
+  if(!window.confirm(`Excluir o profissional "${p.name}"? Esta ação só será concluída se não houver registros vinculados que precisem ser preservados.`))return;
+  setBusy(true);setMessage('');
+  try{
+   const user_id=await owner();
+   const {data,error}=await supabase.from('studio_professionals').delete().eq('id',p.id).eq('user_id',user_id).select('id');
+   if(error){
+    if(error.code==='23503')throw new Error('Este profissional possui agendamentos, pagamentos ou comissões vinculados e não pode ser excluído sem apagar o histórico. Mantenha o cadastro para preservar os registros.');
+    throw error;
+   }
+   if(!data?.length)throw new Error('Não foi possível excluir o profissional. Verifique suas permissões.');
+   if(filterPro===p.id)setFilterPro('');
+   if(slotPro===p.id)setSlotPro('');
+   if(professionalId===p.id)setProfessionalId('');
+   await load();
+   setMessage('Profissional excluído com sucesso.');
+  }catch(err){setMessage(err instanceof Error?err.message:'Não foi possível excluir o profissional.');}
+  finally{setBusy(false);}
+ }
  async function addAppointment(){
   const user_id=await owner();const p=pros.find(x=>x.id===professionalId);if(!p||!p.active)throw new Error('Selecione um profissional ativo.');
   if(!clientId||!procedure.trim()||!start)throw new Error('Preencha cliente, procedimento e horário.');
@@ -153,7 +173,7 @@ export default function AgendaEstudio(){
  return <div style={{display:'grid',gap:18}}>
   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{(['agenda','clientes','profissionais'] as const).map(s=><button key={s} type="button" className={section===s?'primary':'secondary'} onClick={()=>setSection(s)}>{s==='agenda'?'Agenda':s==='clientes'?'Clientes':'Profissionais'}</button>)}</div>
   {loading&&<p>Carregando registros...</p>}
-  {section==='profissionais'&&<><section className="card"><h2>Novo profissional</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addPro)}><label>Nome<input required value={proName} onChange={e=>setProName(e.target.value)}/></label><label>Atuação<select value={role} onChange={e=>setRole(e.target.value)}><option>Tatuador</option><option>Body piercer</option><option>Outro</option></select></label><label>Comissão (%)<input required inputMode="decimal" value={percent} onChange={e=>setPercent(e.target.value)}/></label><button className="primary" disabled={busy}>Cadastrar profissional</button></form></section><section className="card"><h2>Profissionais cadastrados</h2>{pros.map(p=><p key={p.id}>{p.name} — {p.role} — comissão {p.commission_percent}%</p>)}</section></>}
+  {section==='profissionais'&&<><section className="card"><h2>Novo profissional</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addPro)}><label>Nome<input required value={proName} onChange={e=>setProName(e.target.value)}/></label><label>Atuação<select value={role} onChange={e=>setRole(e.target.value)}><option>Tatuador</option><option>Body piercer</option><option>Outro</option></select></label><label>Comissão (%)<input required inputMode="decimal" value={percent} onChange={e=>setPercent(e.target.value)}/></label><button className="primary" disabled={busy}>Cadastrar profissional</button></form></section><section className="card"><h2>Profissionais cadastrados</h2>{pros.length===0?<p>Nenhum profissional cadastrado.</p>:pros.map(p=><div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',padding:'10px 0',borderBottom:'1px solid #333'}}><span>{p.name} — {p.role} — comissão {p.commission_percent}%</span><button type="button" className="secondary" disabled={busy} onClick={()=>void deletePro(p)} aria-label={`Excluir profissional ${p.name}`}>Excluir profissional</button></div>)}</section></>}
   {section==='clientes'&&<><section className="card"><h2>Novo cliente</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addClient)}><label>Nome<input required value={name} onChange={e=>setName(e.target.value)}/></label><label>Telefone / WhatsApp<input value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>Observações<input value={clientNotes} onChange={e=>setClientNotes(e.target.value)}/></label><button className="primary" disabled={busy}>Cadastrar cliente</button></form></section><section className="card"><h2>Clientes e histórico</h2>{clients.map(c=><div key={c.id} style={{marginBottom:16}}><strong>{c.name}</strong> — {c.phone}<div>{appointments.filter(a=>a.client_id===c.id).map(a=><p key={a.id}>{timeLabel(a.starts_at)} · {a.procedure_name} · {proNameOf(a.professional_id)} · {a.status}</p>)}</div></div>)}</section></>}
   {section==='agenda'&&<><section className="card"><h2>Novo agendamento</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addAppointment)}><label>Cliente<select required value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">Selecione</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Profissional<select required value={professionalId} onChange={e=>setProfessionalId(e.target.value)}><option value="">Selecione</option>{pros.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Procedimento<input required value={procedure} onChange={e=>setProcedure(e.target.value)} placeholder="Tatuagem, piercing..."/></label><label>Início<input required type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Duração (minutos)<input required type="number" min="15" max="720" step="15" value={duration} onChange={e=>setDuration(e.target.value)}/></label><label>Valor total (R$)<input required inputMode="decimal" value={price} onChange={e=>setPrice(e.target.value)} placeholder="200,00"/></label><label>Observações<input value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="primary" disabled={busy}>Salvar agendamento</button></form><p className="notice">Cadastre antes um cliente e um profissional nas abas acima.</p></section>
   <HorariosEstudio day={day} professionalId={slotPro} setProfessionalId={setSlotPro} pros={pros} clients={clients} appointments={appointments}
