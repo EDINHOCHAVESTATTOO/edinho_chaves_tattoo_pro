@@ -29,7 +29,8 @@ export default function AgendaEstudio(){
  const [clientId,setClientId]=useState(''),[professionalId,setProfessionalId]=useState(''),[procedure,setProcedure]=useState(''),[start,setStart]=useState(''),[duration,setDuration]=useState('60'),[price,setPrice]=useState(''),[notes,setNotes]=useState('');
  const [payAppointment,setPayAppointment]=useState(''),[payType,setPayType]=useState('sinal'),[payAmount,setPayAmount]=useState(''),[payMethod,setPayMethod]=useState('Pix'),[payDate,setPayDate]=useState(localDate);
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState('');
- const [editingId,setEditingId]=useState<string|null>(null);\n const [sendingConfirmation,setSendingConfirmation]=useState<string|null>(null);
+ const [editingId,setEditingId]=useState<string|null>(null);
+ const [sendingConfirmation,setSendingConfirmation]=useState<string|null>(null);
  const [editClient,setEditClient]=useState(''),[editPro,setEditPro]=useState(''),[editProcedure,setEditProcedure]=useState('');
  const [editStart,setEditStart]=useState(''),[editDuration,setEditDuration]=useState('60');
  const [editPrice,setEditPrice]=useState(''),[editNotes,setEditNotes]=useState('');
