@@ -29,7 +29,7 @@ export default function AgendaEstudio(){
  const [clientId,setClientId]=useState(''),[professionalId,setProfessionalId]=useState(''),[procedure,setProcedure]=useState(''),[start,setStart]=useState(''),[duration,setDuration]=useState('60'),[price,setPrice]=useState(''),[notes,setNotes]=useState('');
  const [payAppointment,setPayAppointment]=useState(''),[payType,setPayType]=useState('sinal'),[payAmount,setPayAmount]=useState(''),[payMethod,setPayMethod]=useState('Pix'),[payDate,setPayDate]=useState(localDate);
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState('');
- const [editingId,setEditingId]=useState<string|null>(null);
+ const [editingId,setEditingId]=useState<string|null>(null);\n const [sendingConfirmation,setSendingConfirmation]=useState<string|null>(null);
  const [editClient,setEditClient]=useState(''),[editPro,setEditPro]=useState(''),[editProcedure,setEditProcedure]=useState('');
  const [editStart,setEditStart]=useState(''),[editDuration,setEditDuration]=useState('60');
  const [editPrice,setEditPrice]=useState(''),[editNotes,setEditNotes]=useState('');
@@ -169,6 +169,20 @@ export default function AgendaEstudio(){
    setMessage(err instanceof Error?err.message:'Não foi possível atualizar o status.');
   }finally{setBusy(false);}
  }
+ async function sendConfirmation(a:Appointment,recipientType:'client'|'professional'){
+  if(sendingConfirmation)return;
+  setSendingConfirmation(`${a.id}:${recipientType}`);setMessage('');
+  try{
+   const {data:{session}}=await supabase.auth.getSession();
+   if(!session?.access_token)throw new Error('Faça login novamente.');
+   const requestId=crypto.randomUUID();
+   const response=await fetch('/api/whatsapp/confirmations',{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({appointmentId:a.id,recipientType,requestId})});
+   const result=await response.json();
+   if(!response.ok)throw new Error(result?.error||'Não foi possível enviar a confirmação.');
+   setMessage(recipientType==='client'?'Confirmação enviada ao cliente pelo WhatsApp.':'Confirmação enviada ao profissional pelo WhatsApp.');
+  }catch(err){setMessage(err instanceof Error?err.message:'Não foi possível enviar a confirmação.');}
+  finally{setSendingConfirmation(null);}
+ }
  async function deleteAppointment(a:Appointment){
   if(busy)return;
   const paid=paidFor(a.id);
@@ -228,7 +242,7 @@ export default function AgendaEstudio(){
       <button type="button" className="secondary" disabled={busy} onClick={()=>setEditingId(null)}>Cancelar edição</button>
      </div>
     </form>
-   ):<div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:12}}><button type="button" className="secondary" disabled={busy} onClick={()=>beginEdit(a)}>Editar / Remarcar</button><button type="button" className="secondary" disabled={busy} onClick={()=>void deleteAppointment(a)}>Excluir agendamento</button></div>}
+   ):<div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:12}}><button type="button" className="secondary" disabled={busy} onClick={()=>beginEdit(a)}>Editar / Remarcar</button><button type="button" className="secondary" disabled={busy||sendingConfirmation!==null} onClick={()=>void sendConfirmation(a,'client')}>{sendingConfirmation===`${a.id}:client`?'Enviando...':'Confirmar com cliente'}</button><button type="button" className="secondary" disabled={busy||sendingConfirmation!==null} onClick={()=>void sendConfirmation(a,'professional')}>{sendingConfirmation===`${a.id}:professional`?'Enviando...':'Avisar profissional'}</button><button type="button" className="secondary" disabled={busy} onClick={()=>void deleteAppointment(a)}>Excluir agendamento</button></div>}
    </div>)}</section>
   <section className="card"><h2>Registrar pagamento recebido</h2><p>O sinal ou pagamento final entra automaticamente no fluxo de caixa. Marcar como concluído, sozinho, não registra dinheiro.</p><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addPayment)}><label>Atendimento<select required value={payAppointment} onChange={e=>setPayAppointment(e.target.value)}><option value="">Selecione</option>{appointments.filter(a=>a.status!=='cancelado'&&paidFor(a.id)<Number(a.price)).map(a=><option key={a.id} value={a.id}>{clientName(a.client_id)} · {a.procedure_name} · {timeLabel(a.starts_at)} · saldo {money(Number(a.price)-paidFor(a.id))}</option>)}</select></label><label>Tipo<select value={payType} onChange={e=>setPayType(e.target.value)}><option value="sinal">Sinal</option><option value="restante">Restante</option><option value="outro">Outro pagamento</option></select></label><label>Valor recebido (R$)<input required inputMode="decimal" value={payAmount} onChange={e=>setPayAmount(e.target.value)}/></label><label>Forma de pagamento<select value={payMethod} onChange={e=>setPayMethod(e.target.value)}>{['Pix','Dinheiro','Cartão de débito','Cartão de crédito','Transferência','Outro'].map(m=><option key={m}>{m}</option>)}</select></label><label>Data do recebimento<input required type="date" value={payDate} onChange={e=>setPayDate(e.target.value)}/></label><button className="primary" disabled={busy}>Registrar recebimento</button></form></section>
   <section className="card"><h2>Comissões previstas</h2><p>Valores calculados sobre os recebimentos registrados, sem criar despesas automáticas.</p>{pros.map(p=><p key={p.id}>{p.name}: {money(appointments.filter(a=>a.professional_id===p.id&&a.status!=='cancelado').reduce((sum,a)=>sum+paidFor(a.id)*Number(a.commission_percent)/100,0))}</p>)}</section></>}
