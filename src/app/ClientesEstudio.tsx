@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { createClient } from '@/lib/supabase';
 import AnamneseEstudio from './AnamneseEstudio';
 import TermoConsentimento from './TermoConsentimento';
+import DocumentosCliente from './DocumentosCliente';
 
 type Cliente = { id: string; user_id: string; name: string; phone: string; notes: string; created_at: string };
 type Agendamento = { id: string; client_id: string; procedure_name: string; starts_at: string; price: number; status: string; professional_id: string | null };
@@ -245,6 +246,8 @@ export default function ClientesEstudio({
       <p><strong>Observações:</strong> {clienteAtual.notes || 'Nenhuma observação.'}</p>
       <AnamneseEstudio key={clienteAtual.id} clientId={clienteAtual.id} />
       <TermoConsentimento key={clienteAtual.id} clientId={clienteAtual.id} />
+      <TermoConsentimento key={`guardian-${clienteAtual.id}`} clientId={clienteAtual.id} guardian />
+      <DocumentosCliente key={`documents-${clienteAtual.id}`} clientId={clienteAtual.id} phone={clienteAtual.phone} />
       <h3>Resumo financeiro</h3>
       {carregandoHistorico ? <p>Carregando valores…</p> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 22 }}>
         {[['Total dos atendimentos', totalContratado], ['Total recebido', totalRecebido], ['Saldo pendente', totalPendente]].map(([rotulo, valor]) =>
