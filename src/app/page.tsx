@@ -123,8 +123,28 @@ export default function Home() {
       setSessionEmail(data.user?.email ?? email);
       setMessage('Login realizado com sucesso.');
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Não foi possível entrar.');
+      setMessage(err instanceof Error && /invalid login credentials/i.test(err.message) ? 'E-mail ou senha não reconhecidos neste ambiente. A conta do aplicativo principal pode não existir na homologação.' : 'Não foi possível entrar. Verifique seus dados e tente novamente.');
     } finally { setBusy(false); }
+  }
+
+  async function requestPasswordReset() {
+    if (!email.trim()) {
+      setMessage('Informe seu e-mail para solicitar a recuperação de senha.');
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    try {
+      const { error } = await createClient().auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin + '/',
+      });
+      if (error) throw error;
+      setMessage('Se este e-mail estiver cadastrado neste ambiente, você receberá instruções para redefinir a senha.');
+    } catch {
+      setMessage('Não foi possível solicitar a recuperação agora. Tente novamente mais tarde.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function signOut() {
@@ -169,14 +189,15 @@ export default function Home() {
         {message && <p className="notice">{message}</p>}
       </section> : !sessionEmail ? <section className="login card">
         <div className="eyebrow">ACESSO SEGURO</div><h2>Entrar no sistema</h2>
-        <p className="muted">Use um usuário criado em Authentication → Users no Supabase.</p>
+        <p className="muted">Entre com a conta cadastrada neste ambiente. A homologação pode usar usuários diferentes do aplicativo principal.</p>
         <form onSubmit={signIn} className="form">
           <label>E-mail<input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" /></label>
           <label>Senha<input type="password" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
           <button className="primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
         </form>
-        {message && <p className="notice">{message}</p>}
-        <p className="notice">Configure as variáveis Supabase antes de entrar. Não existe senha padrão.</p>
+        <button type="button" className="secondary" disabled={busy} onClick={requestPasswordReset}>Esqueci minha senha</button>
+        {message && <p className="notice" role="status">{message}</p>
+        <p className="notice">Não existe senha padrão. Contas de produção e de homologação podem ser diferentes.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
         {tab === 'inicio' && (
