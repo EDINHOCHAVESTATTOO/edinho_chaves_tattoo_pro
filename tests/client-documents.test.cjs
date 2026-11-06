@@ -70,7 +70,7 @@ function harness(options = {}) {
   const route = load('src/app/api/whatsapp/documents/route.ts', {
     'next/server': { NextResponse: { json: (data, init) => Response.json(data, init) } },
     '@supabase/supabase-js': { createClient: () => api }, '@/lib/client-documents': helpers,
-  }, { process: { env }, Request, Response, FormData, AbortSignal, console: { error() {} }, fetch: async (url, init) => {
+  }, { process: { env }, Request, Response, FormData, AbortSignal, console: { error() {}, warn() {} }, fetch: async (url, init) => {
     calls.push({ url, init });
     if (url.endsWith('/media')) return Response.json(options.mediaRejected ? { error: { code: 190 } } : { id: 'synthetic-media' }, { status: options.mediaRejected ? 400 : 200 });
     if (options.timeout) throw new Error('synthetic timeout');
@@ -109,4 +109,11 @@ test('sending: timeout leaves uncertain status and cannot retransmit on same req
 });
 test('sending: media rejection does not attempt to send a message', async () => {
   const h = harness({ mediaRejected: true }); assert.equal((await h.POST(h.request())).status, 502); assert.equal(h.calls.length, 1); assert.equal(h.rows.get(requestId).status, 'failed');
+});
+
+test('sending: explains invalid Meta credential without disclosing its value', async () => {
+  const h = harness({ mediaRejected: true }); const response = await h.POST(h.request());
+  const result = await response.json();
+  assert.match(result.error, /token de acesso.*inválido/i);
+  assert.ok(!JSON.stringify(result).includes('synthetic-meta'));
 });

@@ -4,6 +4,13 @@ import { DOCUMENT_BUCKET, normalizeRecipient, validateDocument } from '@/lib/cli
 
 export const runtime = 'nodejs';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function metaRejection(stage: 'media' | 'message', status: number, value: unknown): Error {
+  const payload = value && typeof value === 'object' ? value as { error?: { code?: unknown; error_subcode?: unknown } } : {};
+  const code = typeof payload.error?.code === 'number' ? payload.error.code : 0;
+  const subcode = typeof payload.error?.error_subcode === 'number' ? payload.error.error_subcode : 0;
+  console.warn('WhatsApp: arquivo recusado pela Meta', { stage, status, code, subcode });
+  return new Error(`META_${code}`);
+}
 const reply = (error: string, status: number, retryAllowed = false) => NextResponse.json({ error, retryAllowed }, { status });
 
 export async function POST(request: Request) {
@@ -88,7 +95,7 @@ export async function POST(request: Request) {
       method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: form, signal: AbortSignal.timeout(20000),
     });
     const media = await mediaResponse.json();
-    if (!mediaResponse.ok || typeof media.id !== 'string') { knownFailure = true; throw new Error('MEDIA_REJECTED'); }
+    if (!mediaResponse.ok || typeof media.id !== 'string') { knownFailure = true; throw metaRejection('media', mediaResponse.status, media); }
     const payload = messageType === 'document' ? { id: media.id, filename } : { id: media.id, caption: filename };
     sendStarted = true;
     const sendResponse = await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`, {
@@ -98,7 +105,7 @@ export async function POST(request: Request) {
     const result = await sendResponse.json();
     if (!sendResponse.ok) {
       knownFailure = true;
-      throw new Error(result.error?.code === 131047 ? 'WINDOW_CLOSED' : 'SEND_REJECTED');
+      throw metaRejection('message', sendResponse.status, result);
     }
     if (typeof result.messages?.[0]?.id !== 'string') throw new Error('UNCONFIRMED');
     acceptedId = result.messages[0].id;
@@ -113,8 +120,13 @@ export async function POST(request: Request) {
     // Log only the phase. Never log file contents, contact data or Meta tokens.
     if (recordError) console.error('WhatsApp: falha ao atualizar registro de envio de arquivo');
     if (uncertain) return reply('O envio pode ter ocorrido, mas não foi possível confirmar. Confira o histórico e o WhatsApp antes de reenviar.', 502);
-    return reply(e instanceof Error && e.message === 'WINDOW_CLOSED'
-      ? 'A janela de atendimento do WhatsApp encerrou. Peça ao destinatário que envie uma nova mensagem antes de tentar novamente.'
-      : 'A Meta não aceitou o envio. Confira a configuração da conta e a janela de atendimento antes de tentar novamente.', 502, true);
+    const code = e instanceof Error ? e.message : '';
+    const message = code === 'META_190' ? 'O token de acesso do WhatsApp está inválido ou expirou. Atualize a credencial do servidor antes de tentar novamente.'
+      : ['META_10', 'META_200'].includes(code) ? 'A credencial do servidor não tem permissão para enviar pela conta WhatsApp configurada.'
+      : code === 'META_131047' ? 'A janela de atendimento do WhatsApp encerrou. Peça ao destinatário que envie uma nova mensagem antes de tentar novamente.'
+      : code === 'META_131030' ? 'A conta está em modo de teste e este destinatário não está autorizado na Meta.'
+      : code === 'META_131026' ? 'A Meta não conseguiu entregar para este destinatário. Confira o número e se ele usa WhatsApp.'
+      : 'Não foi possível concluir o envio. Confira a configuração da conta e a janela de atendimento antes de tentar novamente.';
+    return reply(message, 502, true);
   }
 }
