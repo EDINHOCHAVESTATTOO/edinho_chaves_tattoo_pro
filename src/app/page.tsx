@@ -196,7 +196,7 @@ export default function Home() {
           <button className="primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
         </form>
         <button type="button" className="secondary" disabled={busy} onClick={requestPasswordReset}>Esqueci minha senha</button>
-        {message && <p className="notice" role="status">{message}</p>
+        {message && <p className="notice" role="status">{message}</p>}
         <p className="notice">Não existe senha padrão. Contas de produção e de homologação podem ser diferentes.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
