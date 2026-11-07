@@ -124,11 +124,23 @@ export default function ClientesEstudio({
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user || authError) { setErro('Entre novamente no sistema.'); setSalvando(false); return; }
     const valores = { name: nome.trim(), phone: telefone.trim(), notes: notas.trim() };
+    let studioId: string | undefined;
+    if (!editando) {
+      const { data: profile, error: profileError } = await supabase.from('profiles')
+        .select('studio_id,role').eq('id', user.id).single();
+      if (profileError || !profile?.studio_id || profile.role !== 'owner') {
+        setErro('Seu usuário não está vinculado como proprietário a um estúdio. Verifique o perfil no ambiente de testes.');
+        setSalvando(false);
+        return;
+      }
+      studioId = profile.studio_id;
+    }
     const resultado = editando
-      ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('user_id', user.id)
-      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id });
+      ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('user_id', user.id).select('id')
+      : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id, studio_id: studioId }).select('id');
     if (resultado.error) setErro(resultado.error.message);
-    else { setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); novo(); setAviso(editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'); await carregar(); }
+    else if (!resultado.data?.length) setErro('O cadastro não foi salvo. Verifique suas permissões e tente novamente.');
+    else { const avisoSucesso = editando ? 'Cadastro atualizado.' : 'Cliente cadastrado.'; novo(); await carregar(); setAviso(avisoSucesso); }
     setSalvando(false);
   }
 
@@ -146,7 +158,7 @@ export default function ClientesEstudio({
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (!user || authError) throw new Error('Entre novamente no sistema.');
       const { data: registro, error: registroErro } = await supabase.from('studio_appointments')
-        .select('id,price,status').eq('id', agendamento.id).eq('user_id', user.id).single();
+        .select('id,price,status,studio_id').eq('id', agendamento.id).eq('user_id', user.id).single();
       if (registroErro || !registro) throw registroErro ?? new Error('Atendimento não encontrado.');
       if (registro.status === 'cancelado') throw new Error('Atendimento cancelado.');
       const { data: anteriores, error: pagamentosErro } = await supabase.from('studio_payments')
@@ -156,7 +168,7 @@ export default function ClientesEstudio({
       if (Math.round((jaPago + valor) * 100) > Math.round(Number(registro.price) * 100))
         throw new Error(`O valor supera o saldo disponível de ${moeda(Math.max(0, Number(registro.price) - jaPago))}.`);
       const { error: insertErro } = await supabase.from('studio_payments').insert({
-        user_id: user.id, appointment_id: agendamento.id, amount: valor,
+        user_id: user.id, studio_id: registro.studio_id, appointment_id: agendamento.id, amount: valor,
         payment_type: tipoPagamento, payment_method: formaPagamento, paid_on: dataPagamento,
       });
       if (insertErro) throw insertErro;

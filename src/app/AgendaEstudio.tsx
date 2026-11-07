@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { createClient } from '@/lib/supabase';
 import CalendarioEstudio from './CalendarioEstudio';
 import HorariosEstudio from './HorariosEstudio';
+import DocumentosEstudio from './DocumentosEstudio';
 
 type Pro = {id:string;name:string;role:string;commission_percent:number;active:boolean};
 type Client = {id:string;name:string;phone:string;notes:string};
@@ -12,6 +13,12 @@ const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency
 const localDate=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const parseAmount=(v:string)=>Number(v.trim().replace(/\./g,'').replace(',','.'));
 const timeLabel=(v:string)=>new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+// Exportação manual: não representa sincronização bidirecional.
+const googleCalendarUrl=(a:Appointment)=>{
+ const utc=(v:string)=>new Date(v).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');
+ const query=new URLSearchParams({action:'TEMPLATE',text:'Atendimento — Edinho Chaves Tattoo',dates:`${utc(a.starts_at)}/${utc(a.ends_at)}`,details:'Horário reservado pelo Edinho Chaves Tattoo Pro. Confira alterações diretamente com o estúdio.'});
+ return `https://calendar.google.com/calendar/render?${query.toString()}`;
+};
 const localDateTime=(iso:string)=>{
  const d=new Date(iso);
  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -20,7 +27,7 @@ const localDateTime=(iso:string)=>{
 export default function AgendaEstudio(){
  const supabase=useMemo(()=>createClient(),[]);
  const [pros,setPros]=useState<Pro[]>([]),[clients,setClients]=useState<Client[]>([]),[appointments,setAppointments]=useState<Appointment[]>([]),[payments,setPayments]=useState<Payment[]>([]);
- const [section,setSection]=useState<'agenda'|'clientes'|'profissionais'>('agenda');
+ const [section,setSection]=useState<'agenda'|'clientes'|'profissionais'|'documentos'|'campanhas'>('agenda');
  const [day,setDay]=useState(localDate),[filterPro,setFilterPro]=useState('');
  const [slotPro,setSlotPro]=useState('');
  const [name,setName]=useState(''),[phone,setPhone]=useState(''),[clientNotes,setClientNotes]=useState('');
@@ -29,13 +36,25 @@ export default function AgendaEstudio(){
  const [payAppointment,setPayAppointment]=useState(''),[payType,setPayType]=useState('sinal'),[payAmount,setPayAmount]=useState(''),[payMethod,setPayMethod]=useState('Pix'),[payDate,setPayDate]=useState(localDate);
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState('');
  const [editingId,setEditingId]=useState<string|null>(null);
+ const [googleSetup,setGoogleSetup]=useState<'checking'|'configured'|'pending'>('checking');
+ const [googleBusy,setGoogleBusy]=useState(false);
+ const [googleConnected,setGoogleConnected]=useState(false);
+ const [googleSlots,setGoogleSlots]=useState<{id:string;start:string;end:string;allDay:boolean}[]>([]);
+ const [googleSlotsMessage,setGoogleSlotsMessage]=useState('');
+ const [googleSlotsBusy,setGoogleSlotsBusy]=useState(false);
+ const [googlePublishBusy,setGooglePublishBusy]=useState(false);
+ const publishGoogle=async()=>{setGooglePublishBusy(true);try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Faça login novamente.');const response=await fetch('/api/google-calendar/publish',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});const data=await response.json();if(!response.ok)throw new Error(data.error||'Falha ao enviar horários');setGoogleSlotsMessage('Prévia segura: '+data.ready+' horários aptos, '+data.already+' já existentes, '+data.failed+' falhas, '+data.conflicts+' conflitos. Nenhum evento foi criado ou modificado.')}catch(e){setGoogleSlotsMessage(e instanceof Error?e.message:'Falha no envio')}finally{setGooglePublishBusy(false)}};
+ const loadGoogleSlots=async()=>{setGoogleSlotsBusy(true);setGoogleSlotsMessage('');try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Entre novamente no aplicativo.');const response=await fetch('/api/google-calendar/events',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'});const data=await response.json();if(!response.ok)throw new Error(data.error||'Erro ao consultar agenda Google');setGoogleSlots(data.events||[]);setGoogleSlotsMessage(data.hasMore?'Mostrando os primeiros 250 horários ocupados.':'Consulta somente leitura concluída. Nenhum compromisso foi modificado.')}catch(error){setGoogleSlotsMessage(error instanceof Error?error.message:'Erro ao consultar Google Agenda')}finally{setGoogleSlotsBusy(false)}};
+ useEffect(()=>{let active=true;supabase.auth.getUser().then(async({data:{user}})=>{if(!user)return;const {data}=await supabase.from('google_calendar_connections').select('user_id').eq('user_id',user.id).maybeSingle();if(active)setGoogleConnected(Boolean(data))});return()=>{active=false}},[supabase]);
+ useEffect(()=>{const outcome=new URLSearchParams(window.location.search).get('google_calendar');if(outcome==='connected')setMessage('Google Agenda autorizado. Sincronização automática ainda não está ativa.');else if(outcome)setMessage('Não foi possível concluir a autorização Google: '+outcome)},[]);
+ useEffect(()=>{let alive=true;fetch('/api/google-calendar/status',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(alive)setGoogleSetup(data.configured?'configured':'pending')}).catch(()=>{if(alive)setGoogleSetup('pending')});return()=>{alive=false}},[]);
  const [editClient,setEditClient]=useState(''),[editPro,setEditPro]=useState(''),[editProcedure,setEditProcedure]=useState('');
  const [editStart,setEditStart]=useState(''),[editDuration,setEditDuration]=useState('60');
  const [editPrice,setEditPrice]=useState(''),[editNotes,setEditNotes]=useState('');
  const load=useCallback(async()=>{
   setLoading(true);
   const {data:{user},error:authError}=await supabase.auth.getUser();
-  if(authError||!user){setMessage('Sessão expirada. Entre novamente.');setLoading(false);return;}
+  if(authError||!user){setMessage('Sessão expirada. Entre novamente.');setLoading(false);throw new Error('Sessão expirada. Entre novamente.');}
   const [p,c,a,pay]=await Promise.all([
    supabase.from('studio_professionals').select('id,name,role,commission_percent,active').eq('user_id',user.id).order('name'),
    supabase.from('studio_clients').select('id,name,phone,notes').eq('user_id',user.id).order('name'),
@@ -43,12 +62,13 @@ export default function AgendaEstudio(){
    supabase.from('studio_payments').select('id,appointment_id,amount,payment_type,payment_method,paid_on').eq('user_id',user.id).order('paid_on',{ascending:false}).limit(2000)
   ]);
   const err=[p.error,c.error,a.error,pay.error].find(Boolean);
-  if(err)setMessage(`Erro ao carregar: ${err.message}`);
+  if(err){setMessage(`Erro ao carregar: ${err.message}`);setLoading(false);throw new Error(`Erro ao carregar: ${err.message}`);}
   else {setPros(p.data as Pro[]);setClients(c.data as Client[]);setAppointments(a.data as Appointment[]);setPayments(pay.data as Payment[]);}
   setLoading(false);
  },[supabase]);
- useEffect(()=>{void load()},[load]);
+ useEffect(()=>{void load().catch(err=>{setMessage(err instanceof Error?err.message:'Não foi possível carregar os dados.');setLoading(false);})},[load]);
  async function owner(){const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error('Faça login novamente.');return user.id;}
+ async function studioForOwner(userId:string){const {data,error}=await supabase.from('profiles').select('studio_id').eq('id',userId).eq('role','owner').single();if(error||!data?.studio_id)throw new Error('Estúdio não identificado.');return data.studio_id;}
  async function submit(e:FormEvent<HTMLFormElement>,action:()=>Promise<void>){e.preventDefault();setBusy(true);setMessage('');try{await action();await load();setMessage('Salvo com sucesso.')}catch(err){
   const erro = err as { code?: string; message?: string };
 
@@ -58,8 +78,8 @@ export default function AgendaEstudio(){
       : erro.message || 'Não foi possível salvar.'
   );
 }finally{setBusy(false)}}
- async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
- async function addPro(){const user_id=await owner();const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
+ async function addClient(){const user_id=await owner();if(!name.trim())throw new Error('Informe o nome.');const {error}=await supabase.from('studio_clients').insert({user_id,studio_id:await studioForOwner(user_id),name:name.trim(),phone:phone.trim(),notes:clientNotes.trim()});if(error)throw error;setName('');setPhone('');setClientNotes('');}
+ async function addPro(){const user_id=await owner();const commission_percent=parseAmount(percent);if(!Number.isFinite(commission_percent)||commission_percent<0||commission_percent>100)throw new Error('Comissão deve estar entre 0 e 100%.');const {error}=await supabase.from('studio_professionals').insert({user_id,studio_id:await studioForOwner(user_id),name:proName.trim(),role,commission_percent});if(error)throw error;setProName('');setPercent('0');}
  async function addAppointment(){
   const user_id=await owner();const p=pros.find(x=>x.id===professionalId);if(!p||!p.active)throw new Error('Selecione um profissional ativo.');
   if(!clientId||!procedure.trim()||!start)throw new Error('Preencha cliente, procedimento e horário.');
@@ -69,7 +89,7 @@ export default function AgendaEstudio(){
   // Busca conflitos diretamente no banco, inclusive em outros dias carregados.
   const {data:conflicts,error:checkError}=await supabase.from('studio_appointments').select('id').eq('user_id',user_id).eq('professional_id',professionalId).neq('status','cancelado').lt('starts_at',endAt.toISOString()).gt('ends_at',startAt.toISOString()).limit(1);
   if(checkError)throw checkError;if(conflicts?.length)throw new Error('Esse profissional já tem atendimento nesse horário.');
-  const {error}=await supabase.from('studio_appointments').insert({user_id,client_id:clientId,professional_id:professionalId,procedure_name:procedure.trim(),starts_at:startAt.toISOString(),ends_at:endAt.toISOString(),price:value,commission_percent:p.commission_percent,notes:notes.trim()});
+  const {error}=await supabase.from('studio_appointments').insert({user_id,studio_id:await studioForOwner(user_id),client_id:clientId,professional_id:professionalId,procedure_name:procedure.trim(),starts_at:startAt.toISOString(),ends_at:endAt.toISOString(),price:value,commission_percent:p.commission_percent,notes:notes.trim()});
   if(error)throw error;setProcedure('');setStart('');setPrice('');setNotes('');
  }
  function beginEdit(a:Appointment){
@@ -129,23 +149,68 @@ export default function AgendaEstudio(){
 }
   finally{setBusy(false);}
  }
- async function setStatus(a:Appointment,status:string){setBusy(true);setMessage('');const {error}=await supabase.from('studio_appointments').update({status}).eq('id',a.id);if(error)setMessage(error.message);else{await load();setMessage('Status atualizado. Registrar pagamento é uma ação separada.')}setBusy(false)}
- async function addPayment(){const user_id=await owner();const a=appointments.find(x=>x.id===payAppointment);if(!a)throw new Error('Selecione um agendamento.');const amount=parseAmount(payAmount);const paid=payments.filter(x=>x.appointment_id===a.id).reduce((s,x)=>s+Number(x.amount),0);if(!Number.isFinite(amount)||amount<=0||Math.round((paid+amount)*100)>Math.round(Number(a.price)*100))throw new Error('Valor inválido ou superior ao saldo do atendimento.');const {error}=await supabase.from('studio_payments').insert({user_id,appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate});if(error)throw error;setPayAmount('');setPayAppointment('');}
- const shown=appointments.filter(a=>a.starts_at.slice(0,10)===day || new Date(a.starts_at).toLocaleDateString('en-CA')===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
+ async function setStatus(a:Appointment,status:string){
+  setBusy(true);
+  setMessage('');
+  try {
+    const user_id = await owner();
+    const {data,error} = await supabase.from('studio_appointments')
+      .update({status}).eq('id',a.id).eq('user_id',user_id).select('id');
+    if(error) throw error;
+    if(!data?.length) throw new Error('Agendamento não encontrado ou sem permissão para atualizar.');
+    await load();
+    setMessage('Status atualizado. Registrar pagamento é uma ação separada.');
+  } catch(err) {
+    setMessage(err instanceof Error ? err.message : 'Não foi possível atualizar o status.');
+  } finally {
+    setBusy(false);
+  }
+ }
+ async function addPayment(){
+  const user_id=await owner();
+  const a=appointments.find(x=>x.id===payAppointment);
+  if(!a)throw new Error('Selecione um agendamento.');
+  const amount=parseAmount(payAmount);
+  if(!Number.isFinite(amount)||amount<=0)
+    throw new Error('Valor inválido. Digite 10,00 sem símbolo de moeda.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(payDate)||Number.isNaN(new Date(`${payDate}T12:00:00`).getTime()))
+    throw new Error('Data inválida. Toque no campo de data e selecione o dia novamente.');
+  const {data:current,error:appointmentError}=await supabase.from('studio_appointments')
+    .select('id,price,status').eq('id',a.id).eq('user_id',user_id).single();
+  if(appointmentError||!current)throw appointmentError??new Error('Atendimento não encontrado.');
+  if(current.status==='cancelado')throw new Error('Não é possível receber pagamento de atendimento cancelado.');
+  const {data:previous,error:paymentsError}=await supabase.from('studio_payments')
+    .select('amount').eq('user_id',user_id).eq('appointment_id',a.id);
+  if(paymentsError)throw paymentsError;
+  const paid=(previous??[]).reduce((sum,p)=>sum+Number(p.amount),0);
+  if(Math.round((paid+amount)*100)>Math.round(Number(current.price)*100))
+    throw new Error('O valor supera o saldo disponível do atendimento.');
+  const {error}=await supabase.from('studio_payments').insert({
+    user_id,studio_id:await studioForOwner(user_id),appointment_id:a.id,payment_type:payType,amount,payment_method:payMethod,paid_on:payDate
+  });
+  if(error)throw error;
+  setPayAmount('');setPayAppointment('');
+ }
+ const shown=appointments.filter(a=>localDateTime(a.starts_at).slice(0,10)===day).filter(a=>!filterPro||a.professional_id===filterPro).sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
  const paidFor=(id:string)=>payments.filter(p=>p.appointment_id===id).reduce((s,p)=>s+Number(p.amount),0);
  const clientName=(id:string)=>clients.find(x=>x.id===id)?.name??'Cliente';
  const proNameOf=(id:string)=>pros.find(x=>x.id===id)?.name??'Profissional';
  const inputStyle={maxWidth:580};
  return <div style={{display:'grid',gap:18}}>
-  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{(['agenda','clientes','profissionais'] as const).map(s=><button key={s} type="button" className={section===s?'primary':'secondary'} onClick={()=>setSection(s)}>{s==='agenda'?'Agenda':s==='clientes'?'Clientes':'Profissionais'}</button>)}</div>
+  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{(['agenda','clientes','profissionais','documentos','campanhas'] as const).map(s=><button key={s} type="button" className={section===s?'primary':'secondary'} onClick={()=>setSection(s)}>{s==='agenda'?'Agenda':s==='clientes'?'Clientes':s==='documentos'?'Fichas e anexos':s==='campanhas'?'Campanhas':'Profissionais'}</button>)}</div>
   {loading&&<p>Carregando registros...</p>}
+  {section==='documentos'&&<DocumentosEstudio clients={clients}/>}
+  {section==='campanhas'&&<section className="card"><h2>Campanhas e valores de referência</h2><p>Confira condições e disponibilidade antes de confirmar cada atendimento. Não são descontos aplicados automaticamente.</p>{[['Tatuagem — valor mínimo','R$ 120'],['Flash tattoo — 3 unidades','R$ 150'],['Mini fine line — 10 unidades','R$ 399'],['Piercing em aço simples','R$ 50'],['Vale-tattoo','R$ 120 ou R$ 150']].map(([name,value])=><p key={name}><strong>{name}</strong> · {value}</p>)}<p>Especialidades: realismo colorido e preto e branco, freehand, fine line, tatuagens delicadas e piercing.</p></section>}
   {section==='profissionais'&&<><section className="card"><h2>Novo profissional</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addPro)}><label>Nome<input required value={proName} onChange={e=>setProName(e.target.value)}/></label><label>Atuação<select value={role} onChange={e=>setRole(e.target.value)}><option>Tatuador</option><option>Body piercer</option><option>Outro</option></select></label><label>Comissão (%)<input required inputMode="decimal" value={percent} onChange={e=>setPercent(e.target.value)}/></label><button className="primary" disabled={busy}>Cadastrar profissional</button></form></section><section className="card"><h2>Profissionais cadastrados</h2>{pros.map(p=><p key={p.id}>{p.name} — {p.role} — comissão {p.commission_percent}%</p>)}</section></>}
   {section==='clientes'&&<><section className="card"><h2>Novo cliente</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addClient)}><label>Nome<input required value={name} onChange={e=>setName(e.target.value)}/></label><label>Telefone / WhatsApp<input value={phone} onChange={e=>setPhone(e.target.value)}/></label><label>Observações<input value={clientNotes} onChange={e=>setClientNotes(e.target.value)}/></label><button className="primary" disabled={busy}>Cadastrar cliente</button></form></section><section className="card"><h2>Clientes e histórico</h2>{clients.map(c=><div key={c.id} style={{marginBottom:16}}><strong>{c.name}</strong> — {c.phone}<div>{appointments.filter(a=>a.client_id===c.id).map(a=><p key={a.id}>{timeLabel(a.starts_at)} · {a.procedure_name} · {proNameOf(a.professional_id)} · {a.status}</p>)}</div></div>)}</section></>}
-  {section==='agenda'&&<><section className="card"><h2>Novo agendamento</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addAppointment)}><label>Cliente<select required value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">Selecione</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Profissional<select required value={professionalId} onChange={e=>setProfessionalId(e.target.value)}><option value="">Selecione</option>{pros.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Procedimento<input required value={procedure} onChange={e=>setProcedure(e.target.value)} placeholder="Tatuagem, piercing..."/></label><label>Início<input required type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Duração (minutos)<input required type="number" min="15" max="720" step="15" value={duration} onChange={e=>setDuration(e.target.value)}/></label><label>Valor total (R$)<input required inputMode="decimal" value={price} onChange={e=>setPrice(e.target.value)} placeholder="200,00"/></label><label>Observações<input value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="primary" disabled={busy}>Salvar agendamento</button></form><p className="notice">Cadastre antes um cliente e um profissional nas abas acima.</p></section>
+  {section==='agenda'&&<><section className="card" style={{display:'none'}}><h2>Google Agenda</h2><p><strong>{googleSetup==='checking'?'Verificando configuração…':googleSetup==='configured'?'Credenciais disponíveis — autorização Google pronta para teste.':'Configuração ou verificação pendente.'}</strong></p><p>Você pode adicionar atendimentos individualmente pelo botão disponível em cada horário. A sincronização automática nos dois sentidos exige a autorização da conta Google e a configuração segura do aplicativo.</p><p className="notice">{googleConnected?'Conta Google autorizada. Sincronização automática ainda não está ativa.':'Nenhuma conta Google autorizada neste usuário. Alterações feitas diretamente no Google ainda não são importadas.'}</p>
+<button type="button" disabled={googleBusy||googleSetup!=='configured'} onClick={async()=>{setGoogleBusy(true);try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Sessão expirada');const response=await fetch('/api/google-calendar/connect',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});const data=await response.json();if(!response.ok)throw new Error(data.error||'Erro na autorização');window.location.assign(data.url)}catch(e){setMessage(e instanceof Error?e.message:'Erro na autorização');setGoogleBusy(false)}}}>Conectar Google Agenda</button>
+ <div style={{marginTop:12}}><button type="button" disabled={!googleConnected||googleSlotsBusy} onClick={loadGoogleSlots}>{googleSlotsBusy?'Consultando…':'Consultar horários ocupados no Google (somente leitura)'}</button> <button type="button" disabled={!googleConnected||googlePublishBusy} onClick={publishGoogle}>{googlePublishBusy?'Enviando…':'Verificar envio ao Google (prévia sem alterações)'}</button><p className="notice">{googleSlotsMessage}</p>{googleSlots.length>0&&<div style={{maxHeight:260,overflowY:'auto'}}><strong>{googleSlots.length} eventos ocupados encontrados (sem dados pessoais)</strong><ul>{googleSlots.slice(0,30).map(slot=><li key={slot.id}>{slot.allDay?'Dia inteiro: ':''}{new Date(slot.start).toLocaleString('pt-BR')} — {new Date(slot.end).toLocaleString('pt-BR')}</li>)}</ul></div>}</div></section><section className="card"><h2>Novo agendamento</h2><form className="form" style={inputStyle} onSubmit={e=>void submit(e,addAppointment)}><label>Cliente<select required value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">Selecione</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Profissional<select required value={professionalId} onChange={e=>setProfessionalId(e.target.value)}><option value="">Selecione</option>{pros.filter(p=>p.active).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Procedimento<input required value={procedure} onChange={e=>setProcedure(e.target.value)} placeholder="Tatuagem, piercing..."/></label><label>Início<input required type="datetime-local" value={start} onChange={e=>setStart(e.target.value)}/></label><label>Duração (minutos)<input required type="number" min="15" max="720" step="15" value={duration} onChange={e=>setDuration(e.target.value)}/></label><label>Valor total (R$)<input required inputMode="decimal" value={price} onChange={e=>setPrice(e.target.value)} placeholder="200,00"/></label><label>Observações<input value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="primary" disabled={busy}>Salvar agendamento</button></form><p className="notice">Cadastre antes um cliente e um profissional nas abas acima.</p></section>
   <HorariosEstudio day={day} professionalId={slotPro} setProfessionalId={setSlotPro} pros={pros} clients={clients} appointments={appointments}
    onFree={(dateTime,proId)=>{setStart(dateTime);setProfessionalId(proId);setMessage('Horário selecionado. Preencha os dados em Novo agendamento e salve.');window.scrollTo({top:0,behavior:'smooth'});}}
    onOccupied={(a)=>{setDay(localDateTime(a.starts_at).slice(0,10));beginEdit(a);setMessage('Atendimento selecionado. Edite na Agenda por dia, logo abaixo.');}} />
   <section className="card"><h2>Calendário mensal</h2><CalendarioEstudio day={day} setDay={setDay} appointments={appointments} clients={clients} filterPro={filterPro}/><h2>Agenda por dia</h2><div style={{display:'flex',gap:12,flexWrap:'wrap'}}><label>Data <input type="date" value={day} onChange={e=>setDay(e.target.value)}/></label><label>Profissional <select value={filterPro} onChange={e=>setFilterPro(e.target.value)}><option value="">Todos</option>{pros.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label></div>{shown.length===0?<p>Nenhum agendamento nessa data.</p>:shown.map(a=><div key={a.id} style={{borderBottom:'1px solid #555',padding:'14px 0'}}><strong>{timeLabel(a.starts_at)} — {clientName(a.client_id)}</strong><p>{a.procedure_name} · {proNameOf(a.professional_id)} · {money(Number(a.price))}</p><p>Status: {a.status} · Recebido: {money(paidFor(a.id))} · Falta: {money(Math.max(0,Number(a.price)-paidFor(a.id)))}</p><label>Alterar status <select value={a.status} disabled={busy} onChange={e=>void setStatus(a,e.target.value)}>{['agendado','confirmado','concluido','cancelado'].map(s=><option key={s} value={s}>{s}</option>)}</select></label>
+   
    {editingId===a.id?(
     <form className="form" style={{...inputStyle,marginTop:16,padding:16,border:'1px solid #a88331',borderRadius:10}} onSubmit={e=>void submitEdit(e)}>
      <h3 style={{color:'#d9aa3d',marginTop:0}}>Editar ou remarcar atendimento</h3>

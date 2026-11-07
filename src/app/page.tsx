@@ -7,7 +7,9 @@ import AgendaEstudio from './AgendaEstudio';
 import ComissoesEstudio from './ComissoesEstudio';
 import VisaoGeral from './VisaoGeral';
 import ClientesEstudio from './ClientesEstudio';
-type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes';
+import AutorizacaoMenores from './AutorizacaoMenores';
+import DocumentosEstudio from './DocumentosEstudio';
+type Tab = 'inicio' | 'caixa' | 'agenda' | 'clientes' | 'comissoes' | 'menores' | 'documentos';
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('inicio');
@@ -20,6 +22,7 @@ export default function Home() {
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [clienteParaAbrir, setClienteParaAbrir] = useState<string | null>(null);
+  const [clientesDocumentos,setClientesDocumentos] = useState<{id:string;name:string}[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -90,6 +93,8 @@ export default function Home() {
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
+  useEffect(() => { if (tab !== 'documentos' || !sessionEmail) return; let active=true; (async()=>{const db=createClient();const {data:{user}}=await db.auth.getUser();if(!user)return;const {data}=await db.from('studio_clients').select('id,name').eq('user_id',user.id).order('name');if(active)setClientesDocumentos(data||[]);})();return()=>{active=false}; },[tab,sessionEmail]);
+
   async function updatePassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!recoveryReady) return;
@@ -120,7 +125,7 @@ export default function Home() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       setSessionEmail(data.user?.email ?? email);
-      setMessage('Login realizado. As telas de gestão serão conectadas às tabelas na próxima etapa.');
+      setMessage('Login realizado com sucesso.');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Não foi possível entrar.');
     } finally { setBusy(false); }
@@ -139,6 +144,8 @@ export default function Home() {
     { id: 'agenda', label: 'Agenda', icon: '▦' },
     { id: 'clientes', label: 'Clientes', icon: '♙' },
     { id: 'comissoes', label: 'Comissões', icon: '%' },
+    { id: 'menores', label: 'Autorização menores', icon: '✎' },
+    { id: 'documentos', label: 'Documentos / Anexos', icon: '▤' },
   ];
 
   return <main className="shell">
@@ -167,14 +174,14 @@ export default function Home() {
         {message && <p className="notice">{message}</p>}
       </section> : !sessionEmail ? <section className="login card">
         <div className="eyebrow">ACESSO SEGURO</div><h2>Entrar no sistema</h2>
-        <p className="muted">Use um usuário criado em Authentication → Users no Supabase.</p>
+        <p className="muted">Acesse com seu e-mail e senha cadastrados para o estúdio.</p>
         <form onSubmit={signIn} className="form">
           <label>E-mail<input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" /></label>
           <label>Senha<input type="password" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
           <button className="primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
         </form>
         {message && <p className="notice">{message}</p>}
-        <p className="notice">Configure as variáveis Supabase antes de entrar. Não existe senha padrão.</p>
+        <p className="notice">Não existe senha padrão. Se precisar de acesso, contate o administrador do estúdio.</p>
       </section> : <>
         <div className="welcome"><div><strong>Bem-vindo ao Edinho Chaves Tattoo</strong><p>{sessionEmail}</p></div><button className="secondary" onClick={signOut}>Sair</button></div>
         {tab === 'inicio' && (
@@ -188,10 +195,10 @@ export default function Home() {
         {tab === 'clientes' && (
   <ClientesEstudio clienteParaAbrir={clienteParaAbrir} />
 )}
-        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
+        {tab === 'caixa' && <FluxoCaixa />}{tab === 'agenda' && <AgendaEstudio />}{tab === 'comissoes' && <ComissoesEstudio />}{tab === 'menores' && <AutorizacaoMenores />}{tab === 'documentos' && <DocumentosEstudio clients={clientesDocumentos} />}{tab !== 'inicio' && tab !== 'caixa' && tab !== 'agenda' && tab !== 'comissoes'&& tab !== 'clientes' && tab !== 'menores' && tab !== 'documentos' && <div className="card"><h2>{tabs.find(t => t.id === tab)?.label}</h2><p>Estrutura da tela preparada. A operação ainda precisa ser ligada às tabelas e validada antes do uso com dados reais.</p><p className="notice">Não registre dados reais nesta tela enquanto o módulo estiver em construção.</p></div>}
         {message && <p className="notice">{message}</p>}
         </>}
-      <p className="footerNote">O logotipo original é mantido sem redesenho. A aplicação ainda precisa de testes de segurança e configuração de produção.</p>
+      <p className="footerNote">Edinho Chaves Tattoo · Gestão do estúdio</p>
     </section>
   </main>;
 }

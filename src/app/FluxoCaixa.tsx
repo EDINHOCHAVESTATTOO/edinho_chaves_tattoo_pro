@@ -42,7 +42,7 @@ export default function FluxoCaixa() {
     setLoading(true);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Sessão expirada. Saia e entre novamente.'); setLoading(false); return; }
-    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id').eq('user_id', user.id).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
+    const { data, error } = await supabase.from('cash_entries').select('id,kind,description,category,payment_method,amount,occurred_on,studio_payment_id').eq('user_id', user.id).eq('is_homologation', false).gte('occurred_on', `${month}-01`).lt('occurred_on', (() => { const [y,m] = month.split('-').map(Number); return new Date(Date.UTC(y,m,1)).toISOString().slice(0,10); })()).order('occurred_on', { ascending: false });
     if (error) setMessage(`Erro ao carregar: ${error.message}`);
     else { setItems((data ?? []) as Entry[]); setMessage(''); }
     setLoading(false);
@@ -56,11 +56,13 @@ export default function FluxoCaixa() {
     e.preventDefault(); setBusy(true); setMessage('');
     const parsed = Number(amount.replace(/\./g,'').replace(',','.'));
     if (!Number.isFinite(parsed) || parsed <= 0) { setMessage('Informe um valor maior que zero.'); setBusy(false); return; }
+    if (!description.trim()) { setMessage('Informe a descrição do lançamento.'); setBusy(false); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T12:00:00`).getTime()) || new Date(`${date}T12:00:00`).toISOString().slice(0,10) !== date) { setMessage('Informe uma data válida.'); setBusy(false); return; }
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setMessage('Faça login novamente.'); setBusy(false); return; }
     const { error } = await supabase.from('cash_entries').insert({ user_id: user.id, kind, description: description.trim(), category, payment_method: payment, amount: parsed, occurred_on: date });
     if (error) setMessage(`Não foi possível salvar: ${error.message}`);
-    else { setDescription(''); setAmount(''); setMonth(date.slice(0,7)); await load(); setMessage('Lançamento salvo com sucesso.'); }
+    else { setDescription(''); setAmount(''); const savedMonth = date.slice(0,7); if (savedMonth === month) await load(); else setMonth(savedMonth); setMessage('Lançamento salvo com sucesso.'); }
     setBusy(false);
   }
 
@@ -88,14 +90,17 @@ async function remove(id: string) {
     return;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('cash_entries')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)
-    .is('studio_payment_id', null);
+    .is('studio_payment_id', null)
+    .select('id');
 
-  if (error) {
+  if (!error && (!data || data.length !== 1)) {
+    setMessage('Lançamento não encontrado ou sem permissão para excluir.');
+  } else if (error) {
     setMessage(`Erro ao excluir: ${error.message}`);
   } else {
     await load();
