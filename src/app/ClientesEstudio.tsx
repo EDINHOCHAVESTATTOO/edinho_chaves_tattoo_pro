@@ -6,7 +6,7 @@ import AnamneseEstudio from './AnamneseEstudio';
 import TermoConsentimento from './TermoConsentimento';
 import DocumentosCliente from './DocumentosCliente';
 
-type Cliente = { id: string; user_id: string; name: string; phone: string; notes: string; created_at: string };
+type Cliente = { id: string; user_id: string; name: string; phone: string; notes: string; created_at: string; whatsapp_reminder_consent_at: string | null };
 type Agendamento = { id: string; client_id: string; procedure_name: string; starts_at: string; price: number; status: string; professional_id: string | null };
 type Pagamento = { id: string; appointment_id: string; amount: number; payment_type: string; payment_method: string; paid_on: string };
 type Comissao = { payment_id: string; commission_amount: number; rate_percent: number; status: string };
@@ -36,6 +36,7 @@ export default function ClientesEstudio({
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [notas, setNotas] = useState('');
+  const [lembretes, setLembretes] = useState(false);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [comissoes, setComissoes] = useState<Comissao[]>([]);
@@ -58,7 +59,7 @@ export default function ClientesEstudio({
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { setErro('Entre novamente no sistema.'); setCarregando(false); return; }
     const { data, error } = await supabase.from('studio_clients')
-      .select('id,user_id,name,phone,notes,created_at').eq('user_id', user.id).order('name');
+      .select('id,user_id,name,phone,notes,created_at,whatsapp_reminder_consent_at').eq('user_id', user.id).order('name');
     if (error) setErro(error.message);
     else setClientes((data ?? []) as Cliente[]);
     setCarregando(false);
@@ -115,8 +116,8 @@ export default function ClientesEstudio({
     return () => { ativo = false; };
   }, [selecionado, supabase, atualizarHistorico]);
 
-  function novo() { setEditando(null); setNome(''); setTelefone(''); setNotas(''); setAviso(''); }
-  function editar(c: Cliente) { setEditando(c.id); setNome(c.name); setTelefone(c.phone); setNotas(c.notes); setAviso(''); }
+  function novo() { setEditando(null); setNome(''); setTelefone(''); setNotas(''); setLembretes(false); setAviso(''); }
+  function editar(c: Cliente) { setEditando(c.id); setNome(c.name); setTelefone(c.phone); setNotas(c.notes); setLembretes(Boolean(c.whatsapp_reminder_consent_at)); setAviso(''); }
 
   async function salvar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); setErro(''); setAviso('');
@@ -124,7 +125,9 @@ export default function ClientesEstudio({
     setSalvando(true);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user || authError) { setErro('Entre novamente no sistema.'); setSalvando(false); return; }
-    const valores = { name: nome.trim(), phone: telefone.trim(), notes: notas.trim() };
+    const anterior = clientes.find(c => c.id === editando);
+    const consentimentoAnterior = anterior?.phone === telefone.trim() ? anterior.whatsapp_reminder_consent_at : null;
+    const valores = { name: nome.trim(), phone: telefone.trim(), notes: notas.trim(), whatsapp_reminder_consent_at: lembretes ? (consentimentoAnterior || new Date().toISOString()) : null };
     const resultado = editando
       ? await supabase.from('studio_clients').update(valores).eq('id', editando).eq('user_id', user.id)
       : await supabase.from('studio_clients').insert({ ...valores, user_id: user.id });
@@ -210,7 +213,9 @@ export default function ClientesEstudio({
       <h2>{editando ? 'Editar cliente' : 'Novo cliente'}</h2>
       <form onSubmit={salvar} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
         <label>Nome completo<input style={estiloInput} value={nome} onChange={e => setNome(e.target.value)} required maxLength={150} /></label>
-        <label>Telefone / WhatsApp<input style={estiloInput} value={telefone} onChange={e => setTelefone(e.target.value)} required maxLength={40} inputMode="tel" /></label>
+        <label>Telefone / WhatsApp<input style={estiloInput} value={telefone} onChange={e => { setTelefone(e.target.value); setLembretes(false); }} required maxLength={40} inputMode="tel" /></label>
+        <label><input type="checkbox" checked={lembretes} onChange={e => setLembretes(e.target.checked)} /> O cliente autorizou receber lembretes do atendimento neste WhatsApp</label>
+        <p>Marque somente após autorização do cliente. Desmarque para interromper os lembretes.</p>
         <label>Observações<textarea style={estiloInput} value={notas} onChange={e => setNotas(e.target.value)} rows={3} maxLength={5000} /></label>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="primary" disabled={salvando} type="submit">{salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Cadastrar cliente'}</button>
