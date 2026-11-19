@@ -15,7 +15,7 @@ select cron.schedule(
  $job$
  select net.http_get(
   url := 'https://www.edinhochavestattoo.com.br/api/cron/whatsapp-reminders',
-  headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name='edinho_reminder_cron_secret')),
+  headers := jsonb_build_object('x-reminder-timestamp', floor(extract(epoch from now()))::bigint::text, 'x-reminder-signature', encode(extensions.hmac('GET:/api/cron/whatsapp-reminders:' || floor(extract(epoch from now()))::bigint::text, (select decrypted_secret from vault.decrypted_secrets where name='edinho_reminder_cron_secret'), 'sha256'), 'hex')),
   timeout_milliseconds := 280000
  );
  $job$
