@@ -1,0 +1,20 @@
+{
+  "name": "edinho_lembrete_agendamento_24h",
+  "language": "pt_BR",
+  "category": "UTILITY",
+  "components": [
+    {
+      "type": "BODY",
+      "text": "Olá, {{1}}! Lembramos que seu atendimento no Edinho Chaves Tattoo está agendado para {{2}} às {{3}}. Para confirmar ou solicitar alteração, responda esta mensagem.",
+      "example": {
+        "body_text": [
+          [
+            "Cliente de teste",
+            "20/11/2026",
+            "14:30"
+          ]
+        ]
+      }
+    }
+  ]
+}
