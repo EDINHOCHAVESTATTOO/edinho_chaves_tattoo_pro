@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, createHmac } from 'node:crypto';
 import { DAY_MS, GRACE_MS, dueReminder, reminderPhone, reminderTemplate } from '@/lib/appointment-reminders';
 export const runtime='nodejs';
 export const maxDuration=300;
@@ -7,8 +7,11 @@ export const dynamic='force-dynamic';
 function authorized(request:Request) {
  const secret=process.env.CRON_SECRET;
  if(!secret || secret.length<32)return false;
- const actual=Buffer.from(request.headers.get('authorization')||'');
- const expected=Buffer.from(`Bearer ${secret}`);
+ const timestamp=request.headers.get('x-reminder-timestamp')||'';
+ const signature=request.headers.get('x-reminder-signature')||'';
+ if(!/^[0-9]{10}$/.test(timestamp)||!/^[a-f0-9]{64}$/.test(signature)||Math.abs(Date.now()/1000-Number(timestamp))>300)return false;
+ const actual=Buffer.from(signature);
+ const expected=Buffer.from(createHmac('sha256',secret).update(`GET:/api/cron/whatsapp-reminders:${timestamp}`).digest('hex'));
  return actual.length===expected.length && timingSafeEqual(actual,expected);
 }
 export async function GET(request:Request) {
