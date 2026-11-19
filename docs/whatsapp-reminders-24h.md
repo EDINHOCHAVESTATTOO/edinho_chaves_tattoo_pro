@@ -14,7 +14,7 @@ Não incluir dados do procedimento no lembrete.
 1. Submeter o modelo à conta comercial real e aguardar APPROVED. O endpoint verifica status, idioma, categoria e texto antes de enviar.
 2. Aplicar docs/sql/whatsapp-reminder-consent.sql. Registrar consentimento real por cliente; nunca preencher retroativamente em massa.
 3. Configurar variáveis server-only: WHATSAPP_BUSINESS_ACCOUNT_ID, WHATSAPP_REMINDER_TEMPLATE, WHATSAPP_REMINDER_LANGUAGE=pt_BR, WHATSAPP_REMINDER_USER_ID, CRON_SECRET aleatório com pelo menos 32 caracteres. Reutilizar o token e phone ID seguros existentes. WHATSAPP_REMINDERS_ENABLED=false até validação final.
-4. Publicar a branch com aprovação específica. Configurar chamada GET /api/cron/whatsapp-reminders a cada 5 minutos, Authorization Bearer CRON_SECRET. Vercel Pro permite essa frequência; se Hobby, usar Supabase Cron+Vault+pg_net após validar documentação, sem trocar plano automaticamente. Script de ativação preparado: docs/sql/activate-whatsapp-reminder-cron.sql (Supabase Cron + Vault, independente do plano Vercel). Não há cron ativado neste commit.
+4. Publicar a branch com aprovação específica. Configurar chamada GET /api/cron/whatsapp-reminders a cada 5 minutos, assinatura HMAC SHA-256 com timestamp (script SQL de ativação). Vercel Pro permite essa frequência; se Hobby, usar Supabase Cron+Vault+pg_net após validar documentação, sem trocar plano automaticamente. Script de ativação preparado: docs/sql/activate-whatsapp-reminder-cron.sql (Supabase Cron + Vault, independente do plano Vercel). Não há cron ativado neste commit.
 5. Homologar com destinatário autorizado e consentimento registrado; ativar enabled=true somente após confirmação específica.
 
 ## Regras
@@ -23,4 +23,6 @@ Restrito ao owner configurado e conta vinculada. Dados lidos novamente antes do 
 `sent` significa aceito pela API, não entregue/lido. provider_message_id permite correlacionar; callback de entrega ao livro de notificações ainda deve ser validado antes de afirmar entrega. Monitorar falhas/processing e execução do cron.
 
 ## Validação 17/11/2026
-37 testes automatizados aprovados (9 novos), TypeScript e build de produção aprovados. npm audit --omit=dev: zero vulnerabilidades após Next.js 16.4.3 → 16.4.6. Modelo e cron não submetidos/ativados: Meta requer login; nenhuma mensagem real enviada. Migração e scheduler preparados, ainda não aplicados no banco. Homologação ponta a ponta e monitoramento de execução continuam pendentes antes da ativação.
+38 testes automatizados aprovados (10 novos), TypeScript e build de produção aprovados. npm audit --omit=dev: zero vulnerabilidades após Next.js 16.4.3 → 16.4.6. Modelo e cron não submetidos/ativados: Meta requer login; nenhuma mensagem real enviada. Migração e scheduler preparados, ainda não aplicados no banco. Homologação ponta a ponta e monitoramento de execução continuam pendentes antes da ativação.
+
+Autenticação atual: HMAC com timestamp de até 5 minutos, vinculado a método e caminho. O segredo fica no Vault/Vercel e não vai na fila HTTP. Chamadas sem assinatura ou vencidas recebem 401.
