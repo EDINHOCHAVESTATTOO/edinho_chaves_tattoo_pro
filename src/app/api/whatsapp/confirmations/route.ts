@@ -20,10 +20,12 @@ export async function POST(request:Request){
  try{const v=await request.json();if(!uuid.test(v.appointmentId)||!uuid.test(v.requestId)||!['client','professional'].includes(v.recipientType))throw new Error();body=v;}catch{return reply('Pedido inválido.',400);}
  const {data:a,error:aError}=await userClient.from('studio_appointments').select('id,client_id,professional_id,procedure_name,starts_at,status').eq('id',body.appointmentId).eq('user_id',user.id).maybeSingle();
  if(aError||!a)return reply('Agendamento não encontrado.',404);
+ if(!['agendado','confirmado'].includes(a.status))return reply('Este atendimento não está disponível para confirmação.',409);
  const table=body.recipientType==='client'?'studio_clients':'studio_professionals';
  const id=body.recipientType==='client'?a.client_id:a.professional_id;
- const {data:person,error:pError}=await userClient.from(table).select('name,phone').eq('id',id).eq('user_id',user.id).maybeSingle();
+ const {data:person,error:pError}=await userClient.from(table).select(body.recipientType==='client'?'name,phone,whatsapp_reminder_consent_at':'name,phone').eq('id',id).eq('user_id',user.id).returns<{name:string;phone:string;whatsapp_reminder_consent_at?:string|null}[]>().maybeSingle();
  if(pError||!person)return reply('Destinatário não encontrado.',404);
+ if(body.recipientType==='client'&&!person.whatsapp_reminder_consent_at)return reply('Registre a autorização do cliente para receber mensagens de agendamento pelo WhatsApp.',409);
  if(!person.phone)return reply(body.recipientType==='client'?'Cliente sem WhatsApp cadastrado.':'Profissional sem WhatsApp cadastrado.',400);
  const recipient=normalize(person.phone);if(!/^55\d{10,11}$/.test(recipient))return reply('Número de WhatsApp inválido.',400);
  const admin=createClient(url,secretKey,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -33,18 +35,42 @@ export async function POST(request:Request){
  if(previous)return NextResponse.json({status:previous.status,duplicate:true});
  const {data:conversation,error:cError}=await admin.from('whatsapp_conversations').upsert({user_id:user.id,phone:recipient,contact_name:person.name,updated_at:new Date().toISOString()},{onConflict:'user_id,phone'}).select('id').single();
  if(cError||!conversation)return reply('Não foi possível registrar a conversa.',503);
- const {data:lastIncoming}=await admin.from('whatsapp_messages').select('created_at').eq('user_id',user.id).eq('conversation_id',conversation.id).eq('direction','incoming').order('created_at',{ascending:false}).limit(1).maybeSingle();
- if(!lastIncoming||Date.now()-new Date(lastIncoming.created_at).getTime()>24*60*60*1000)return reply('A janela de 24 horas do WhatsApp está fechada para este contato. É necessário um modelo de mensagem aprovado pela Meta para enviar a confirmação automaticamente.',409);
+ let templatePayload:Record<string,unknown>|null=null;
+ let renderedTemplateText:string|null=null;
+ if(body.recipientType==='client'){
+  const waba=process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+  if(!waba)return reply('A conta comercial para modelos não está configurada.',503);
+  const templateName='confirmacao_agendamento_edinho';
+  const expectedBody='Olá, {{1}}! 🖤 Aqui é do Edinho Chaves Tattoo. Estamos confirmando seu agendamento para {{2}}, às {{3}}, referente ao procedimento de {{4}}. Por favor, responda esta mensagem confirmando sua presença. Agradecemos!';
+  try{
+   const check=await fetch(`https://graph.facebook.com/${version}/${waba}/message_templates?name=${templateName}&fields=name,status,language,category,components`,{headers:{Authorization:`Bearer ${accessToken}`},signal:AbortSignal.timeout(10000)});
+   const result=await check.json();
+   const approved=result.data?.find((t:{name:string;status:string;language:string;category:string;components:{type:string;text?:string}[]})=>t.name===templateName&&t.status==='APPROVED'&&t.language==='pt_BR'&&t.category==='UTILITY'&&t.components?.find(c=>c.type==='BODY')?.text===expectedBody);
+   if(!check.ok||!approved)return reply('O modelo de confirmação não está aprovado ou está incompatível na conta Meta.',503);
+  }catch{return reply('Não foi possível verificar o modelo na Meta. Tente novamente mais tarde.',503);}
+  const date=new Date(a.starts_at);
+  if(!Number.isFinite(date.getTime()))return reply('Data do atendimento inválida.',400);
+  const values=[person.name,date.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}),date.toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'}),a.procedure_name];
+  renderedTemplateText=expectedBody.replace(/\{\{([1-4])\}\}/g,(_,index)=>String(values[Number(index)-1]));
+  templatePayload={name:templateName,language:{code:'pt_BR'},components:[{type:'body',parameters:values.map(text=>({type:'text',text}))}]};
+ }else{
+  const {data:lastIncoming,error:incomingError}=await admin.from('whatsapp_messages').select('created_at').eq('user_id',user.id).eq('conversation_id',conversation.id).eq('direction','incoming').order('created_at',{ascending:false}).limit(1).maybeSingle();
+  const incomingTime=Date.parse(lastIncoming?.created_at||'');
+  if(incomingError||!Number.isFinite(incomingTime)||Date.now()-incomingTime>=24*60*60*1000)return reply('A janela de conversa do profissional está fechada. Peça que ele envie uma mensagem ao WhatsApp do estúdio; o modelo de cliente não será enviado ao profissional.',409);
+ }
  const when=new Date(a.starts_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'});
  const text=body.recipientType==='client'
-  ?`Olá, ${person.name}! Confirmamos seu horário no Edinho Chaves Tattoo para ${when}. Procedimento: ${a.procedure_name}. Se precisar alterar, responda esta mensagem.`
+  ?renderedTemplateText!
   :`Olá, ${person.name}! Agendamento confirmado para ${when}. Procedimento: ${a.procedure_name}. Cliente vinculado ao atendimento no sistema Edinho Chaves Tattoo Pro.`;
- const {error:reserve}=await admin.from('whatsapp_messages').insert({id:body.requestId,user_id:user.id,conversation_id:conversation.id,whatsapp_message_id:`outbox:${user.id}:${body.requestId}`,direction:'outgoing',message_type:'text',message_text:text,status:'queued'});
+ const {error:reserve}=await admin.from('whatsapp_messages').insert({id:body.requestId,user_id:user.id,conversation_id:conversation.id,whatsapp_message_id:`outbox:${user.id}:${body.requestId}`,direction:'outgoing',message_type:templatePayload?'template':'text',message_text:text,status:'queued'});
  if(reserve)return reply(reserve.code==='23505'?'Este envio já está sendo processado.':'Não foi possível registrar o envio.',reserve.code==='23505'?409:503);
  let started=false,knownFailure=false;
  try{
+  const {data:current,error:currentError}=await userClient.from('studio_appointments').select('id,client_id,professional_id,procedure_name,starts_at,status').eq('id',body.appointmentId).eq('user_id',user.id).maybeSingle();
+  const {data:latestPerson,error:latestPersonError}=await userClient.from(table).select(body.recipientType==='client'?'phone,whatsapp_reminder_consent_at':'phone').eq('id',id).eq('user_id',user.id).returns<{phone:string;whatsapp_reminder_consent_at?:string|null}[]>().maybeSingle();
+  if(currentError||latestPersonError||!current||!latestPerson||!['agendado','confirmado'].includes(current.status)||current.starts_at!==a.starts_at||current.client_id!==a.client_id||current.professional_id!==a.professional_id||current.procedure_name!==a.procedure_name||latestPerson.phone!==person.phone||(body.recipientType==='client'&&!latestPerson.whatsapp_reminder_consent_at))throw new Error('APPOINTMENT_CHANGED');
   started=true;
-  const res=await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`,{method:'POST',headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',recipient_type:'individual',to:recipient,type:'text',text:{preview_url:false,body:text}}),signal:AbortSignal.timeout(20000)});
+  const res=await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`,{method:'POST',headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify({messaging_product:'whatsapp',recipient_type:'individual',to:recipient,...(templatePayload?{type:'template',template:templatePayload}:{type:'text',text:{preview_url:false,body:text}})}),signal:AbortSignal.timeout(20000)});
   const result=await res.json();if(!res.ok){knownFailure=true;throw new Error(String(result?.error?.code||'META'));}
   const mid=result?.messages?.[0]?.id;if(typeof mid!=='string')throw new Error('UNCONFIRMED');
   await admin.from('whatsapp_messages').update({whatsapp_message_id:mid,status:'accepted'}).eq('id',body.requestId).eq('user_id',user.id);
